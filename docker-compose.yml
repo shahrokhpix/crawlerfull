@@ -72,10 +72,8 @@ services:
       - ./config:/app/config
       - ./public:/app/public
     depends_on:
-      postgres:
-        condition: service_healthy
-      redis:
-        condition: service_healthy
+      - postgres
+      - redis
     networks:
       - crawler_network
     restart: unless-stopped
@@ -136,10 +134,8 @@ services:
       - ./config:/app/config
       - ./public:/app/public
     depends_on:
-      postgres:
-        condition: service_healthy
-      redis:
-        condition: service_healthy
+      - postgres
+      - redis
     networks:
       - crawler_network
     restart: unless-stopped
