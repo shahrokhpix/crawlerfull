@@ -1,0 +1,1961 @@
+<!DOCTYPE html>
+<html lang="fa" dir="rtl">
+<!-- نشانگر بارگذاری صفحه -->
+<div class="page-loading" id="pageLoading"></div>
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>پنل مدیریت کرالر</title>
+    <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.1.3/dist/css/bootstrap.min.css" rel="stylesheet">
+    <link href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0/css/all.min.css" rel="stylesheet">
+    <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/vazirmatn@33.0.3/Vazirmatn-font-face.css">
+    <style>
+        body {
+            font-family: 'Vazirmatn', 'Tahoma', sans-serif;
+            background-color: #f8f9fa;
+            transition: all 0.3s ease;
+        }
+        .sidebar {
+            min-height: 100vh;
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            color: white;
+            position: sticky;
+            top: 0;
+            height: 100vh;
+            overflow-y: auto;
+            z-index: 1000;
+            transition: all 0.3s ease;
+        }
+        .sidebar .nav-link {
+            color: rgba(255,255,255,0.8);
+            border-radius: 8px;
+            margin: 5px 0;
+            padding: 10px 15px;
+            transition: all 0.2s ease;
+        }
+        .sidebar .nav-link:hover,
+        .sidebar .nav-link.active {
+            background-color: rgba(255,255,255,0.2);
+            color: white;
+            transform: translateX(5px);
+        }
+        .card {
+            border: none;
+            border-radius: 12px;
+            box-shadow: 0 4px 15px rgba(0,0,0,0.08);
+            transition: transform 0.3s ease, box-shadow 0.3s ease;
+            margin-bottom: 20px;
+        }
+        .card:hover {
+            transform: translateY(-5px);
+            box-shadow: 0 8px 25px rgba(0,0,0,0.1);
+        }
+        .card-header {
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            color: white;
+            border-radius: 12px 12px 0 0 !important;
+            padding: 15px 20px;
+        }
+        .btn {
+            border-radius: 8px;
+            padding: 8px 16px;
+            transition: all 0.3s ease;
+        }
+        .btn-primary {
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            border: none;
+        }
+        .btn-primary:hover {
+            background: linear-gradient(135deg, #5a6fd8 0%, #6a4190 100%);
+            transform: translateY(-2px);
+            box-shadow: 0 4px 10px rgba(0,0,0,0.15);
+        }
+        .btn-outline-primary {
+            border-color: #667eea;
+            color: #667eea;
+        }
+        .btn-outline-primary:hover {
+            background-color: #667eea;
+            color: white;
+        }
+        .stats-card {
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            color: white;
+            transition: all 0.3s ease;
+        }
+        .stats-card:hover {
+            transform: translateY(-5px);
+            box-shadow: 0 8px 25px rgba(102, 126, 234, 0.4);
+        }
+        .table {
+            border-collapse: separate;
+            border-spacing: 0 5px;
+        }
+        .table th {
+            background-color: #f8f9fa;
+            border-top: none;
+            padding: 12px 15px;
+            font-weight: 600;
+        }
+        .table td {
+            padding: 12px 15px;
+            vertical-align: middle;
+        }
+        .table tr {
+            box-shadow: 0 2px 5px rgba(0,0,0,0.05);
+            border-radius: 8px;
+            transition: all 0.2s ease;
+        }
+        .table tr:hover {
+            transform: translateY(-2px);
+            box-shadow: 0 5px 15px rgba(0,0,0,0.08);
+        }
+        .badge {
+            font-size: 0.75em;
+            padding: 5px 10px;
+            border-radius: 6px;
+        }
+        .content-section {
+            display: none;
+            animation: fadeIn 0.5s ease;
+        }
+        .content-section.active {
+            display: block;
+        }
+        .login-container {
+            min-height: 100vh;
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            display: flex;
+            align-items: center;
+            justify-content: center;
+        }
+        .login-card {
+            background: white;
+            border-radius: 15px;
+            box-shadow: 0 15px 35px rgba(0,0,0,0.2);
+            transition: all 0.3s ease;
+        }
+        .login-card:hover {
+            transform: translateY(-5px);
+            box-shadow: 0 20px 40px rgba(0,0,0,0.3);
+        }
+        .form-control {
+            border-radius: 8px;
+            padding: 10px 15px;
+            border: 1px solid #e0e0e0;
+            transition: all 0.3s ease;
+        }
+        .form-control:focus {
+            border-color: #667eea;
+            box-shadow: 0 0 0 3px rgba(102, 126, 234, 0.25);
+        }
+        .modal-content {
+            border-radius: 15px;
+            border: none;
+            box-shadow: 0 15px 35px rgba(0,0,0,0.2);
+        }
+        .modal-header {
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            color: white;
+            border-radius: 15px 15px 0 0;
+            padding: 15px 20px;
+        }
+        .modal-footer {
+            border-top: none;
+            padding: 15px 20px;
+        }
+        .alert {
+            border-radius: 8px;
+            border: none;
+            box-shadow: 0 4px 10px rgba(0,0,0,0.05);
+        }
+        .toast-notification {
+            position: fixed;
+            top: 20px;
+            right: 20px;
+            z-index: 9999;
+            border-radius: 8px;
+            box-shadow: 0 5px 15px rgba(0,0,0,0.1);
+            animation: slideIn 0.3s ease;
+            overflow: hidden;
+            min-width: 300px;
+            max-width: 450px;
+        }
+        
+        .toast-notification .toast-progress {
+            position: absolute;
+            bottom: 0;
+            left: 0;
+            height: 3px;
+            width: 100%;
+            background-color: rgba(255,255,255,0.5);
+        }
+        
+        .toast-hide {
+            animation: slideOut 0.3s ease forwards;
+        }
+        
+        .loading-indicator {
+            position: fixed;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            background-color: rgba(0,0,0,0.3);
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            z-index: 9999;
+        }
+        
+        .loading-indicator .spinner {
+            width: 50px;
+            height: 50px;
+            border: 5px solid rgba(255,255,255,0.3);
+            border-radius: 50%;
+            border-top-color: #667eea;
+            animation: spin 1s ease-in-out infinite;
+        }
+        
+        /* تم تاریک */
+        .dark-theme {
+            background-color: #1a1a2e;
+            color: #e6e6e6;
+        }
+        
+        .dark-theme .card {
+            background-color: #16213e;
+            color: #e6e6e6;
+        }
+        
+        .dark-theme .table th {
+            background-color: #16213e;
+            color: #e6e6e6;
+        }
+        
+        .dark-theme .table td {
+            color: #e6e6e6;
+        }
+        
+        .dark-theme .table tr {
+            background-color: #1a1a2e;
+        }
+        
+        .dark-theme .form-control {
+            background-color: #16213e;
+            border-color: #0f3460;
+            color: #e6e6e6;
+        }
+        
+        .dark-theme .form-control:focus {
+            background-color: #16213e;
+            color: #e6e6e6;
+        }
+        
+        .dark-theme .modal-content {
+            background-color: #1a1a2e;
+            color: #e6e6e6;
+        }
+        
+        .dark-theme .modal-footer,
+        .dark-theme .modal-body {
+            background-color: #1a1a2e;
+        }
+        
+        /* انیمیشن پالس برای اعداد */
+        .pulse-once {
+            animation: pulse 0.5s ease;
+        }
+        
+        /* استایل برای نشانگر بارگذاری صفحه */
+        .page-loading {
+            position: fixed;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 3px;
+            background: linear-gradient(to right, #667eea, #764ba2);
+            z-index: 9999;
+            animation: loading-bar 2s ease-in-out infinite;
+        }
+        
+        @keyframes loading-bar {
+            0% { width: 0%; left: 0; }
+            50% { width: 70%; left: 15%; }
+            100% { width: 0%; left: 100%; }
+        }
+        @keyframes fadeIn {
+            from { opacity: 0; }
+            to { opacity: 1; }
+        }
+        @keyframes slideIn {
+            from { transform: translateX(50px); opacity: 0; }
+            to { transform: translateX(0); opacity: 1; }
+        }
+        @keyframes slideOut {
+            from { transform: translateX(0); opacity: 1; }
+            to { transform: translateX(50px); opacity: 0; }
+        }
+        @keyframes spin {
+            0% { transform: rotate(0deg); }
+            100% { transform: rotate(360deg); }
+        }
+        @keyframes pulse {
+            0% { transform: scale(1); }
+            50% { transform: scale(1.05); }
+            100% { transform: scale(1); }
+        }
+        
+        /* انیمیشن بارگذاری اولیه صفحه */
+        .page-loaded .card,
+        .page-loaded .stats-card,
+        .page-loaded .nav-link {
+            animation: fadeIn 0.5s ease forwards;
+            opacity: 0;
+            animation-delay: calc(var(--animation-order, 0) * 0.1s);
+        }
+        
+        .page-loaded .sidebar {
+            animation: slideIn 0.5s ease forwards;
+            transform: translateX(50px);
+            opacity: 0;
+        }
+        
+        .page-loaded h2 {
+            animation: fadeIn 0.5s ease forwards;
+            opacity: 0;
+            animation-delay: 0.2s;
+        }
+        /* استایل‌های لاگ real-time */
+        .realtime-logs {
+            background-color: #1e1e1e;
+            color: #ffffff;
+            border-radius: 8px;
+            padding: 15px;
+            height: 300px;
+            overflow-y: auto;
+            font-family: 'Courier New', monospace;
+            font-size: 13px;
+            line-height: 1.4;
+            border: 1px solid #333;
+        }
+        
+        .log-entry {
+            margin-bottom: 5px;
+            padding: 3px 0;
+            border-bottom: 1px solid rgba(255,255,255,0.1);
+            animation: fadeInLog 0.3s ease;
+        }
+        
+        .log-entry:last-child {
+            border-bottom: none;
+        }
+        
+        .log-time {
+            color: #888;
+            font-size: 11px;
+            margin-left: 8px;
+        }
+        
+        .log-icon {
+            margin-left: 5px;
+        }
+        
+        .log-message {
+            color: #fff;
+        }
+        
+        .log-success .log-message {
+            color: #4CAF50;
+        }
+        
+        .log-error .log-message {
+            color: #f44336;
+        }
+        
+        .log-warning .log-message {
+            color: #ff9800;
+        }
+        
+        .log-info .log-message {
+            color: #2196F3;
+        }
+        
+        @keyframes fadeInLog {
+            from {
+                opacity: 0;
+                transform: translateY(-10px);
+            }
+            to {
+                opacity: 1;
+                transform: translateY(0);
+            }
+        }
+        
+        .logs-controls {
+            margin-bottom: 10px;
+        }
+        
+        .logs-controls .btn {
+            font-size: 12px;
+            padding: 5px 10px;
+        }
+        
+        /* Responsive fixes */
+        @media (max-width: 768px) {
+            .sidebar {
+                min-height: auto;
+                position: relative;
+                height: auto;
+            }
+            .card {
+                margin-bottom: 15px;
+            }
+            .table-responsive {
+                border-radius: 12px;
+                overflow: hidden;
+            }
+            .realtime-logs {
+                height: 200px;
+                font-size: 12px;
+            }
+        }
+    </style>
+</head>
+<body>
+    <!-- Loading Overlay -->
+    <div id="loading" class="loading-overlay" style="display: none; position: fixed; top: 0; left: 0; width: 100%; height: 100%; background: rgba(0,0,0,0.5); z-index: 9999; align-items: center; justify-content: center;">
+        <div class="loading-spinner text-center text-white">
+            <div class="spinner-border text-primary" role="status" style="width: 3rem; height: 3rem;">
+                <span class="visually-hidden">در حال بارگذاری...</span>
+            </div>
+            <div class="mt-3">در حال پردازش...</div>
+        </div>
+    </div>
+    
+    <!-- صفحه ورود -->
+    <div id="loginPage" class="login-container d-flex align-items-center justify-content-center">
+        <div class="login-card p-5" style="width: 400px;">
+            <div class="text-center mb-4">
+                <i class="fas fa-robot fa-3x text-primary mb-3"></i>
+                <h3>پنل مدیریت کرالر</h3>
+                <p class="text-muted">وارد حساب کاربری خود شوید</p>
+            </div>
+            <form id="loginForm">
+                <div class="mb-3">
+                    <label class="form-label">نام کاربری</label>
+                    <input type="text" class="form-control" id="username" required autocomplete="username">
+                </div>
+                <div class="mb-3">
+                    <label class="form-label">رمز عبور</label>
+                    <input type="password" class="form-control" id="password" required autocomplete="current-password">
+                </div>
+                <button type="submit" class="btn btn-primary w-100">
+                    <i class="fas fa-sign-in-alt me-2"></i>ورود
+                </button>
+            </form>
+            <div id="loginError" class="alert alert-danger mt-3" style="display: none;"></div>
+        </div>
+    </div>
+
+    <!-- پنل اصلی -->
+    <div id="mainPanel" class="d-none">
+        <div class="container-fluid">
+            <div class="row">
+                <!-- Sidebar -->
+                <div class="col-md-3 col-lg-2 sidebar p-3">
+                    <div class="text-center mb-4">
+                        <i class="fas fa-robot fa-2x mb-2"></i>
+                        <h5>پنل مدیریت</h5>
+                        <small id="userInfo"></small>
+                    </div>
+                    
+                    <nav class="nav flex-column">
+                        <a class="nav-link active" href="#" data-section="dashboard">
+                            <i class="fas fa-tachometer-alt me-2"></i>داشبورد
+                        </a>
+                        <a class="nav-link" href="#" data-section="sources">
+                            <i class="fas fa-newspaper me-2"></i>منابع خبری
+                        </a>
+                        <a class="nav-link" href="#" data-section="schedules">
+                            <i class="fas fa-clock me-2"></i>زمان‌بندی کرال
+                        </a>
+                        <a class="nav-link" href="#" data-section="selector-builder">
+                            <i class="fas fa-crosshairs me-2"></i>انتخابگر بصری
+                        </a>
+                        <a class="nav-link" href="#" data-section="cleanup">
+                            <i class="fas fa-broom me-2"></i>پاک‌سازی اخبار
+                        </a>
+                        <a class="nav-link" href="#" data-section="crawler">
+                            <i class="fas fa-spider me-2"></i>کرالر
+                        </a>
+                        <a class="nav-link" href="#" data-section="articles">
+                            <i class="fas fa-file-alt me-2"></i>اخبار
+                        </a>
+                        <a class="nav-link" href="#" data-section="logs">
+                            <i class="fas fa-list-alt me-2"></i>لاگ‌ها
+                        </a>
+                        <a class="nav-link" href="#" data-section="test">
+                            <i class="fas fa-vial me-2"></i>تست سلکتور
+                        </a>
+                        <a class="nav-link" href="#" data-section="webdriver">
+                            <i class="fas fa-cogs me-2"></i>مدیریت درایور
+                        </a>
+                    </nav>
+                    
+                    <div class="mt-auto pt-3">
+                        <button class="btn btn-outline-light btn-sm w-100" onclick="logout()">
+                            <i class="fas fa-sign-out-alt me-2"></i>خروج
+                        </button>
+                    </div>
+                </div>
+
+                <!-- Main Content -->
+                <div class="col-md-9 col-lg-10 p-4">
+                    <!-- Dashboard -->
+                    <div id="dashboard" class="content-section active">
+                        <div class="d-flex justify-content-between align-items-center mb-4">
+                            <h2><i class="fas fa-tachometer-alt me-2"></i>داشبورد</h2>
+                            <div>
+                                <button class="btn btn-danger me-2" id="clearAllDataBtn">
+                                    <i class="fas fa-trash-alt me-2"></i>تخلیه کامل دیتابیس
+                                </button>
+                            <button class="btn btn-primary" onclick="refreshStats()">
+                                <i class="fas fa-sync-alt me-2"></i>به‌روزرسانی
+                            </button>
+                            </div>
+                        </div>
+                        
+                        <div class="row mb-4">
+                            <div class="col-md-3 mb-3">
+                                <div class="card stats-card">
+                                    <div class="card-body text-center">
+                                        <i class="fas fa-file-alt fa-2x mb-2"></i>
+                                        <h3 id="totalArticles">0</h3>
+                                        <p class="mb-0">کل اخبار</p>
+                                    </div>
+                                </div>
+                            </div>
+                            <div class="col-md-3 mb-3">
+                                <div class="card stats-card">
+                                    <div class="card-body text-center">
+                                        <i class="fas fa-star fa-2x mb-2"></i>
+                                        <h3 id="newArticles">0</h3>
+                                        <p class="mb-0">اخبار جدید</p>
+                                    </div>
+                                </div>
+                            </div>
+                            <div class="col-md-3 mb-3">
+                                <div class="card stats-card">
+                                    <div class="card-body text-center">
+                                        <i class="fas fa-newspaper fa-2x mb-2"></i>
+                                        <h3 id="totalSources">0</h3>
+                                        <p class="mb-0">منابع فعال</p>
+                                    </div>
+                                </div>
+                            </div>
+                            <div class="col-md-3 mb-3">
+                                <div class="card stats-card">
+                                    <div class="card-body text-center">
+                                        <i class="fas fa-clock fa-2x mb-2"></i>
+                                        <h3 id="recentCrawls">0</h3>
+                                        <p class="mb-0">کرال‌های اخیر</p>
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+                        
+                        <div class="row">
+                            <div class="col-md-6">
+                                <div class="card">
+                                    <div class="card-header">
+                                        <h5 class="mb-0">منابع برتر</h5>
+                                    </div>
+                                    <div class="card-body">
+                                        <div id="topSources">در حال بارگذاری...</div>
+                                    </div>
+                                </div>
+                            </div>
+                            <div class="col-md-6">
+                                <div class="card">
+                                    <div class="card-header">
+                                        <h5 class="mb-0">آخرین فعالیت‌ها</h5>
+                                    </div>
+                                    <div class="card-body">
+                                        <div id="recentActivity">در حال بارگذاری...</div>
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+
+                    <!-- Sources Management -->
+                    <div id="sources" class="content-section">
+                        <div class="d-flex justify-content-between align-items-center mb-4">
+                            <h2><i class="fas fa-newspaper me-2"></i>مدیریت منابع خبری</h2>
+                            <button class="btn btn-primary" data-bs-toggle="modal" data-bs-target="#addSourceModal">
+                                <i class="fas fa-plus me-2"></i>افزودن منبع
+                            </button>
+                        </div>
+                        
+                        <div class="card">
+                            <div class="card-body">
+                                <div class="table-responsive">
+                                    <table class="table table-hover">
+                                        <thead>
+                                            <tr>
+                                                <th>نام</th>
+                                                <th>URL پایه</th>
+                                                <th>نوع درایور</th>
+                                                <th>وضعیت</th>
+                                                <th>تاریخ ایجاد</th>
+                                                <th>عملیات</th>
+                                            </tr>
+                                        </thead>
+                                        <tbody id="sourcesTable">
+                                            <tr>
+                                                <td colspan="6" class="text-center">در حال بارگذاری...</td>
+                                            </tr>
+                                        </tbody>
+                                    </table>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+
+                    <!-- Crawler -->
+                    <div id="crawler" class="content-section">
+                        <div class="d-flex justify-content-between align-items-center mb-4">
+                            <h2><i class="fas fa-spider me-2"></i>کرالر</h2>
+                        </div>
+                        
+                        <div class="row">
+                            <div class="col-md-6">
+                                <div class="card">
+                                    <div class="card-header">
+                                        <h5 class="mb-0">کرال جدید</h5>
+                                    </div>
+                                    <div class="card-body">
+                                        <form id="crawlForm">
+                                            <div class="mb-3">
+                                                <label class="form-label">منبع خبری</label>
+                                                <select class="form-select" id="crawlSource" required>
+                                                    <option value="">انتخاب منبع...</option>
+                                                </select>
+                                            </div>
+                                            <div class="row">
+                                                <div class="col-md-6">
+                                                    <div class="mb-3">
+                                                        <label class="form-label">تعداد اخبار</label>
+                                                        <input type="number" class="form-control" id="crawlLimit" value="10" min="1" max="50">
+                                                    </div>
+                                                </div>
+                                                <div class="col-md-6">
+                                                    <div class="mb-3">
+                                                        <label class="form-label">عمق کرال</label>
+                                                        <input type="number" class="form-control" id="crawlDepth" value="0" min="0" max="3">
+                                                    </div>
+                                                </div>
+                                            </div>
+                                            <div class="mb-3">
+                                                <div class="form-check">
+                                                    <input class="form-check-input" type="checkbox" id="fullContent" checked>
+                                                    <label class="form-check-label" for="fullContent">
+                                                        استخراج محتوای کامل
+                                                    </label>
+                                                </div>
+                                            </div>
+                                            <button type="submit" class="btn btn-primary w-100">
+                                                <i class="fas fa-play me-2"></i>شروع کرال
+                                            </button>
+                                        </form>
+                                    </div>
+                                </div>
+                            </div>
+                            <div class="col-md-6">
+                                <div class="card">
+                                    <div class="card-header">
+                                        <h5 class="mb-0">نتیجه کرال</h5>
+                                    </div>
+                                    <div class="card-body">
+                                        <div id="crawlResult">هنوز کرالی انجام نشده است.</div>
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+
+                    <!-- Articles -->
+                    <div id="articles" class="content-section">
+                        <div class="d-flex justify-content-between align-items-center mb-4">
+                            <h2><i class="fas fa-file-alt me-2"></i>اخبار</h2>
+                            <div>
+                                <button class="btn btn-outline-info me-2" onclick="toggleAdvancedFilters()">
+                                    <i class="fas fa-filter"></i> فیلترهای پیشرفته
+                                </button>
+                                <select class="form-select d-inline-block" style="width: auto;" id="articleSource">
+                                    <option value="">همه منابع</option>
+                                </select>
+                                <button class="btn btn-outline-primary ms-2" onclick="loadArticles(1)">
+                                    <i class="fas fa-sync-alt"></i>
+                                </button>
+                            </div>
+                        </div>
+                        
+                        <!-- Advanced Filters -->
+                        <div id="advancedFilters" class="card mb-4" style="display: none;">
+                            <div class="card-header">
+                                <h6 class="mb-0"><i class="fas fa-filter me-2"></i>فیلترهای پیشرفته</h6>
+                            </div>
+                            <div class="card-body">
+                                <div class="row">
+                                    <div class="col-md-3">
+                                        <div class="mb-3">
+                                            <label class="form-label">جستجو در عنوان</label>
+                                            <input type="text" class="form-control" id="titleSearch" placeholder="جستجو در عنوان...">
+                                        </div>
+                                    </div>
+                                    <div class="col-md-3">
+                                        <div class="mb-3">
+                                            <label class="form-label">وضعیت</label>
+                                            <select class="form-select" id="statusFilter">
+                                                <option value="">همه</option>
+                                                <option value="new">جدید</option>
+                                                <option value="read">خوانده شده</option>
+                                            </select>
+                                        </div>
+                                    </div>
+                                    <div class="col-md-3">
+                                        <div class="mb-3">
+                                            <label class="form-label">از تاریخ</label>
+                                            <input type="date" class="form-control" id="dateFrom">
+                                        </div>
+                                    </div>
+                                    <div class="col-md-3">
+                                        <div class="mb-3">
+                                            <label class="form-label">تا تاریخ</label>
+                                            <input type="date" class="form-control" id="dateTo">
+                                        </div>
+                                    </div>
+                                </div>
+                                <div class="row">
+                                    <div class="col-md-3">
+                                        <div class="mb-3">
+                                            <label class="form-label">عمق کرال</label>
+                                            <select class="form-select" id="depthFilter">
+                                                <option value="">همه</option>
+                                                <option value="0">0 (صفحه اصلی)</option>
+                                                <option value="1">1</option>
+                                                <option value="2">2</option>
+                                                <option value="3">3</option>
+                                            </select>
+                                        </div>
+                                    </div>
+                                    <div class="col-md-3">
+                                        <div class="mb-3">
+                                            <label class="form-label">مرتب‌سازی</label>
+                                            <select class="form-select" id="sortBy">
+                                                <option value="created_at_desc">جدیدترین</option>
+                                                <option value="created_at_asc">قدیمی‌ترین</option>
+                                                <option value="title_asc">عنوان (الف-ی)</option>
+                                                <option value="title_desc">عنوان (ی-الف)</option>
+                                            </select>
+                                        </div>
+                                    </div>
+                                    <div class="col-md-3">
+                                        <div class="mb-3">
+                                            <label class="form-label">تعداد در صفحه</label>
+                                            <select class="form-select" id="pageSize">
+                                                <option value="10">10</option>
+                                                <option value="25" selected>25</option>
+                                                <option value="50">50</option>
+                                                <option value="100">100</option>
+                                            </select>
+                                        </div>
+                                    </div>
+                                    <div class="col-md-3">
+                                        <div class="mb-3">
+                                            <label class="form-label">&nbsp;</label>
+                                            <div class="d-flex gap-2">
+                                                <button class="btn btn-primary" onclick="applyFilters()">
+                                                    <i class="fas fa-search"></i> اعمال فیلتر
+                                                </button>
+                                                <button class="btn btn-outline-secondary" onclick="clearFilters()">
+                                                    <i class="fas fa-times"></i> پاک کردن
+                                                </button>
+                                            </div>
+                                        </div>
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+                        
+                        <div class="card">
+                            <div class="card-body">
+                                <div class="table-responsive">
+                                    <table class="table table-hover">
+                                        <thead>
+                                            <tr>
+                                                <th>عنوان</th>
+                                                <th>منبع</th>
+                                                <th>عمق</th>
+                                                <th>وضعیت</th>
+                                                <th>تاریخ</th>
+                                                <th>لینک اصلی</th>
+                                                <th>عملیات</th>
+                                            </tr>
+                                        </thead>
+                                        <tbody id="articlesTable">
+                                            <tr>
+                                                <td colspan="7" class="text-center">در حال بارگذاری...</td>
+                                            </tr>
+                                        </tbody>
+                                    </table>
+                                </div>
+                                <!-- Pagination -->
+                                <div class="d-flex justify-content-between align-items-center mt-3 px-3 pb-3">
+                                    <div class="text-muted" id="articlesInfo">
+                                        نمایش 0 تا 0 از 0 مقاله
+                                    </div>
+                                    <nav aria-label="صفحه‌بندی اخبار">
+                                        <ul class="pagination pagination-sm mb-0" id="articlesPagination">
+                                            <!-- Pagination buttons will be generated here -->
+                                        </ul>
+                                    </nav>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+
+                    <!-- Schedules -->
+                    <div id="schedules" class="content-section">
+                        <div class="d-flex justify-content-between align-items-center mb-4">
+                            <h2><i class="fas fa-clock me-2"></i>مدیریت زمان‌بندی‌ها</h2>
+                            <button class="btn btn-primary" onclick="showAddScheduleForm()">
+                                <i class="fas fa-plus me-2"></i>افزودن زمان‌بندی
+                            </button>
+                        </div>
+                        
+                        <!-- Add/Edit Schedule Form -->
+                        <div id="scheduleFormContainer" class="card mb-4" style="display: none;">
+                            <div class="card-header">
+                                <h5 class="mb-0" id="scheduleFormTitle">افزودن زمان‌بندی جدید</h5>
+                            </div>
+                            <div class="card-body">
+                                <form id="scheduleForm">
+                                    <input type="hidden" id="scheduleId">
+                                    <div class="row">
+                                        <div class="col-md-6">
+                                            <div class="mb-3">
+                                                <label class="form-label">منبع خبری</label>
+                                                <select class="form-select" id="scheduleSource" required>
+                                                    <option value="">انتخاب منبع...</option>
+                                                </select>
+                                            </div>
+                                        </div>
+                                        <div class="col-md-6">
+                                            <div class="mb-3">
+                                                <label class="form-label">عبارت Cron</label>
+                                                <input type="text" class="form-control" id="cronExpression" required placeholder="0 */30 * * * *">
+                                                <div class="form-text">مثال: 0 */30 * * * * (هر 30 دقیقه)</div>
+                                            </div>
+                                        </div>
+                                    </div>
+                                    
+                                    <!-- تنظیمات کرال -->
+                                    <div class="card mt-3">
+                                        <div class="card-header">
+                                            <h6 class="mb-0">تنظیمات کرال</h6>
+                                        </div>
+                                        <div class="card-body">
+                                            <div class="row">
+                                                <div class="col-md-6">
+                                                    <div class="mb-3">
+                                                        <label class="form-label">عمق کرال</label>
+                                                        <input type="number" class="form-control" id="scheduleCrawlDepth" min="0" max="5" value="0">
+                                                        <div class="form-text">عمق کرال (0-5) - 0 = فقط صفحه اصلی</div>
+                                                    </div>
+                                                </div>
+                                                <div class="col-md-6">
+                                                    <div class="mb-3">
+                                                        <label class="form-label">محدودیت مقاله</label>
+                                                        <input type="number" class="form-control" id="articleLimit" min="1" max="100" value="10">
+                                                        <div class="form-text">حداکثر تعداد اخبار (1-100)</div>
+                                                    </div>
+                                                </div>
+                                            </div>
+                                            <div class="row">
+                                                <div class="col-md-6">
+                                                    <div class="mb-3">
+                                                        <label class="form-label">زمان انتظار (میلی‌ثانیه)</label>
+                                                        <input type="number" class="form-control" id="timeoutMs" min="1000" max="300000" value="300000">
+                                                        <div class="form-text">زمان انتظار برای بارگذاری صفحه (1000-300000)</div>
+                                                    </div>
+                                                </div>
+                                                <div class="col-md-6">
+                                                    <div class="mb-3">
+                                                        <div class="form-check mt-4">
+                                                            <input class="form-check-input" type="checkbox" id="scheduleFullContent" checked>
+                                                            <label class="form-check-label" for="scheduleFullContent">
+                                                                دریافت محتوای کامل
+                                                            </label>
+                                                        </div>
+                                                        <div class="form-check">
+                                                            <input class="form-check-input" type="checkbox" id="followLinks" checked>
+                                                            <label class="form-check-label" for="followLinks">
+                                                                دنبال کردن لینک‌ها
+                                                            </label>
+                                                        </div>
+                                                    </div>
+                                                </div>
+                                            </div>
+                                        </div>
+                                    </div>
+                                    
+                                    <div class="row mt-3">
+                                        <div class="col-md-6">
+                                            <div class="mb-3">
+                                                <div class="form-check">
+                                                    <input class="form-check-input" type="checkbox" id="isActive" checked>
+                                                    <label class="form-check-label" for="isActive">
+                                                        فعال
+                                                    </label>
+                                                </div>
+                                            </div>
+                                        </div>
+                                    </div>
+                                    <div class="d-flex gap-2">
+                                        <button type="submit" class="btn btn-primary">
+                                            <i class="fas fa-save me-2"></i>ذخیره
+                                        </button>
+                                        <button type="button" class="btn btn-secondary" onclick="hideScheduleForm()">
+                                            <i class="fas fa-times me-2"></i>انصراف
+                                        </button>
+                                    </div>
+                                </form>
+                            </div>
+                        </div>
+                        
+                        <!-- Schedules List -->
+                        <div class="card">
+                            <div class="card-body">
+                                <div class="table-responsive">
+                                    <table class="table table-hover">
+                                        <thead>
+                                            <tr>
+                                                <th>منبع</th>
+                                                <th>عبارت Cron</th>
+                                                <th>وضعیت</th>
+                                                <th>آخرین اجرا</th>
+                                                <th>بعدی اجرا</th>
+                                                <th>عملیات</th>
+                                            </tr>
+                                        </thead>
+                                        <tbody id="schedulesTable">
+                                            <tr>
+                                                <td colspan="6" class="text-center">در حال بارگذاری...</td>
+                                            </tr>
+                                        </tbody>
+                                    </table>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+
+                    <!-- Selector Builder -->
+                    <div id="selector-builder" class="content-section">
+                        <div class="d-flex justify-content-between align-items-center mb-4">
+                            <h2><i class="fas fa-crosshairs me-2"></i>انتخابگر بصری CSS</h2>
+                            <div class="d-flex gap-2">
+                                <button class="btn btn-outline-primary" onclick="loadSavedConfigs()">
+                                    <i class="fas fa-folder-open me-2"></i>پیکربندی‌های ذخیره شده
+                                </button>
+                                <button class="btn btn-primary" onclick="openSelectorBuilder()">
+                                    <i class="fas fa-external-link-alt me-2"></i>باز کردن انتخابگر
+                                </button>
+                            </div>
+                        </div>
+                        
+                        <!-- URL Input -->
+                        <div class="card mb-4">
+                            <div class="card-header">
+                                <h5 class="mb-0">شروع انتخابگر بصری</h5>
+                            </div>
+                            <div class="card-body">
+                                <div class="row">
+                                    <div class="col-md-8">
+                                        <div class="mb-3">
+                                            <label class="form-label">آدرس صفحه وب</label>
+                                            <input type="url" class="form-control" id="targetUrl" placeholder="https://example.com" required>
+                                            <div class="form-text">آدرس صفحه‌ای که می‌خواهید انتخابگر CSS برای آن تولید کنید</div>
+                                        </div>
+                                    </div>
+                                    <div class="col-md-4">
+                                        <div class="mb-3">
+                                            <label class="form-label">&nbsp;</label>
+                                            <button type="button" class="btn btn-success d-block w-100" onclick="startSelectorBuilder()">
+                                                <i class="fas fa-play me-2"></i>شروع انتخابگر
+                                            </button>
+                                        </div>
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+                        
+                        <!-- Saved Configurations -->
+                        <div class="card">
+                            <div class="card-header">
+                                <h5 class="mb-0">پیکربندی‌های ذخیره شده</h5>
+                            </div>
+                            <div class="card-body">
+                                <div class="table-responsive">
+                                    <table class="table table-hover">
+                                        <thead>
+                                            <tr>
+                                                <th>نام</th>
+                                                <th>URL</th>
+                                                <th>توضیحات</th>
+                                                <th>تاریخ ایجاد</th>
+                                                <th>عملیات</th>
+                                            </tr>
+                                        </thead>
+                                        <tbody id="selectorConfigsTable">
+                                            <tr>
+                                                <td colspan="5" class="text-center">در حال بارگذاری...</td>
+                                            </tr>
+                                        </tbody>
+                                    </table>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+
+                    <!-- Logs -->
+                    <div id="logs" class="content-section">
+                        <div class="d-flex justify-content-between align-items-center mb-4">
+                            <h2><i class="fas fa-list-alt me-2"></i>لاگ‌ها</h2>
+                            <div class="d-flex gap-2">
+                                <button class="btn btn-outline-info" onclick="toggleLogFilters()">
+                                    <i class="fas fa-filter"></i> فیلترها
+                                </button>
+                                <button class="btn btn-outline-success" onclick="exportLogs()">
+                                    <i class="fas fa-download"></i> خروجی
+                                </button>
+                                <button class="btn btn-outline-warning" onclick="clearAllLogs()">
+                                    <i class="fas fa-trash"></i> پاک کردن همه
+                                </button>
+                                <button class="btn btn-outline-primary" onclick="loadLogs()">
+                                    <i class="fas fa-sync-alt"></i> به‌روزرسانی
+                                </button>
+                            </div>
+                        </div>
+                        
+                        <!-- آمار لاگ‌ها -->
+                        <div class="row mb-4">
+                            <div class="col-md-3">
+                                <div class="card bg-primary text-white">
+                                    <div class="card-body text-center">
+                                        <h4 id="totalLogsCount">0</h4>
+                                        <p class="mb-0">کل لاگ‌ها</p>
+                                    </div>
+                                </div>
+                            </div>
+                            <div class="col-md-3">
+                                <div class="card bg-success text-white">
+                                    <div class="card-body text-center">
+                                        <h4 id="successLogsCount">0</h4>
+                                        <p class="mb-0">موفق</p>
+                                    </div>
+                                </div>
+                            </div>
+                            <div class="col-md-3">
+                                <div class="card bg-danger text-white">
+                                    <div class="card-body text-center">
+                                        <h4 id="errorLogsCount">0</h4>
+                                        <p class="mb-0">خطا</p>
+                                    </div>
+                                </div>
+                            </div>
+                            <div class="col-md-3">
+                                <div class="card bg-info text-white">
+                                    <div class="card-body text-center">
+                                        <h4 id="todayLogsCount">0</h4>
+                                        <p class="mb-0">امروز</p>
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+                        
+                        <!-- فیلترهای پیشرفته لاگ‌ها -->
+                        <div id="logFilters" class="card mb-4" style="display: none;">
+                            <div class="card-header">
+                                <h6 class="mb-0"><i class="fas fa-filter me-2"></i>فیلترهای پیشرفته لاگ‌ها</h6>
+                            </div>
+                            <div class="card-body">
+                                <div class="row">
+                                    <div class="col-md-3">
+                                        <div class="mb-3">
+                                            <label class="form-label">منبع</label>
+                                            <select class="form-select" id="logSourceFilter">
+                                                <option value="">همه منابع</option>
+                                            </select>
+                                        </div>
+                                    </div>
+                                    <div class="col-md-3">
+                                        <div class="mb-3">
+                                            <label class="form-label">وضعیت</label>
+                                            <select class="form-select" id="logStatusFilter">
+                                                <option value="">همه</option>
+                                                <option value="success">موفق</option>
+                                                <option value="error">خطا</option>
+                                                <option value="warning">هشدار</option>
+                                                <option value="info">اطلاعات</option>
+                                            </select>
+                                        </div>
+                                    </div>
+                                    <div class="col-md-3">
+                                        <div class="mb-3">
+                                            <label class="form-label">عملیات</label>
+                                            <select class="form-select" id="logActionFilter">
+                                                <option value="">همه عملیات</option>
+                                                <option value="crawl">کرال</option>
+                                                <option value="schedule">زمان‌بندی</option>
+                                                <option value="cleanup">پاک‌سازی</option>
+                                                <option value="system">سیستم</option>
+                                            </select>
+                                        </div>
+                                    </div>
+                                    <div class="col-md-3">
+                                        <div class="mb-3">
+                                            <label class="form-label">از تاریخ</label>
+                                            <input type="date" class="form-control" id="logDateFrom">
+                                        </div>
+                                    </div>
+                                </div>
+                                <div class="row">
+                                    <div class="col-md-3">
+                                        <div class="mb-3">
+                                            <label class="form-label">تا تاریخ</label>
+                                            <input type="date" class="form-control" id="logDateTo">
+                                        </div>
+                                    </div>
+                                    <div class="col-md-3">
+                                        <div class="mb-3">
+                                            <label class="form-label">جستجو در پیام</label>
+                                            <input type="text" class="form-control" id="logMessageSearch" placeholder="جستجو در پیام...">
+                                        </div>
+                                    </div>
+                                    <div class="col-md-3">
+                                        <div class="mb-3">
+                                            <label class="form-label">مرتب‌سازی</label>
+                                            <select class="form-select" id="logSortBy">
+                                                <option value="created_at_desc">جدیدترین</option>
+                                                <option value="created_at_asc">قدیمی‌ترین</option>
+                                                <option value="status">وضعیت</option>
+                                                <option value="source_name">منبع</option>
+                                            </select>
+                                        </div>
+                                    </div>
+                                    <div class="col-md-3">
+                                        <div class="mb-3">
+                                            <label class="form-label">&nbsp;</label>
+                                            <div class="d-flex gap-2">
+                                                <button class="btn btn-primary" onclick="applyLogFilters()">
+                                                    <i class="fas fa-search"></i> اعمال
+                                                </button>
+                                                <button class="btn btn-outline-secondary" onclick="clearLogFilters()">
+                                                    <i class="fas fa-times"></i> پاک کردن
+                                                </button>
+                                            </div>
+                                        </div>
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+                        
+                        <!-- جدول لاگ‌ها -->
+                        <div class="card">
+                            <div class="card-header d-flex justify-content-between align-items-center">
+                                <h6 class="mb-0"><i class="fas fa-table me-2"></i>لیست لاگ‌ها</h6>
+                                <div class="d-flex gap-2">
+                                    <div class="form-check form-switch">
+                                        <input class="form-check-input" type="checkbox" id="autoRefreshLogs" checked>
+                                        <label class="form-check-label" for="autoRefreshLogs">
+                                            <small>به‌روزرسانی خودکار</small>
+                                        </label>
+                                    </div>
+                                    <select class="form-select form-select-sm" style="width: auto;" id="logPageSize">
+                                        <option value="10">10</option>
+                                        <option value="25" selected>25</option>
+                                        <option value="50">50</option>
+                                        <option value="100">100</option>
+                                    </select>
+                                </div>
+                            </div>
+                            <div class="card-body">
+                                <div class="table-responsive">
+                                    <table class="table table-hover">
+                                        <thead>
+                                            <tr>
+                                                <th>زمان</th>
+                                                <th>منبع</th>
+                                                <th>عملیات</th>
+                                                <th>وضعیت</th>
+                                                <th>آمار</th>
+                                                <th>مدت زمان</th>
+                                                <th>جزئیات</th>
+                                                <th>عملیات</th>
+                                            </tr>
+                                        </thead>
+                                        <tbody id="logsTable">
+                                            <tr>
+                                                <td colspan="8" class="text-center">در حال بارگذاری...</td>
+                                            </tr>
+                                        </tbody>
+                                    </table>
+                                </div>
+                                <!-- Pagination -->
+                                <div class="d-flex justify-content-between align-items-center mt-3">
+                                    <div class="text-muted" id="logsInfo">
+                                        نمایش 0 تا 0 از 0 لاگ
+                                    </div>
+                                    <nav aria-label="صفحه‌بندی لاگ‌ها">
+                                        <ul class="pagination pagination-sm mb-0" id="logsPagination">
+                                            <!-- Pagination buttons will be generated here -->
+                                        </ul>
+                                    </nav>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+
+                    <!-- Cleanup Schedules -->
+                    <div id="cleanup" class="content-section" style="display: none;">
+                        <div class="d-flex justify-content-between align-items-center mb-4">
+                            <h2><i class="fas fa-broom me-2"></i>مدیریت پاک‌سازی اخبار</h2>
+                            <div class="d-flex gap-2">
+                                <button class="btn btn-primary" onclick="showAddCleanupForm()">
+                                    <i class="fas fa-plus me-1"></i>افزودن زمانبندی
+                                </button>
+                                <button class="btn btn-warning" onclick="showManualCleanupModal()">
+                                    <i class="fas fa-trash me-1"></i>پاک‌سازی دستی
+                                </button>
+                            </div>
+                        </div>
+
+                        <!-- Add/Edit Cleanup Schedule Form -->
+                        <div id="cleanupFormContainer" class="card mb-4" style="display: none;">
+                            <div class="card-header">
+                                <h5 class="mb-0" id="cleanupFormTitle">افزودن زمانبندی پاک‌سازی</h5>
+                            </div>
+                            <div class="card-body">
+                                <form id="cleanupForm">
+                                    <input type="hidden" id="cleanupId">
+                                    <div class="row">
+                                        <div class="col-md-6">
+                                            <div class="mb-3">
+                                                <label class="form-label">نام زمانبندی</label>
+                                                <input type="text" class="form-control" id="cleanupName" required placeholder="مثال: پاک‌سازی روزانه">
+                                            </div>
+                                        </div>
+                                        <div class="col-md-6">
+                                            <div class="mb-3">
+                                                <label class="form-label">عبارت Cron</label>
+                                                <input type="text" class="form-control" id="cleanupCron" required placeholder="0 2 * * *">
+                                                <div class="form-text">مثال: 0 2 * * * (ساعت 2 شب هر روز)</div>
+                                            </div>
+                                        </div>
+                                    </div>
+                                    <div class="row">
+                                        <div class="col-md-6">
+                                            <div class="mb-3">
+                                                <label class="form-label">تعداد مقالات باقی‌مانده</label>
+                                                <input type="number" class="form-control" id="keepArticlesCount" min="100" max="50000" value="1000">
+                                                <div class="form-text">تعداد مقالات جدید که باقی می‌مانند</div>
+                                            </div>
+                                        </div>
+                                        <div class="col-md-6">
+                                            <div class="mb-3">
+                                                <div class="form-check mt-4">
+                                                    <input class="form-check-input" type="checkbox" id="cleanupActive" checked>
+                                                    <label class="form-check-label" for="cleanupActive">
+                                                        فعال
+                                                    </label>
+                                                </div>
+                                            </div>
+                                        </div>
+                                    </div>
+                                    <div class="d-flex gap-2">
+                                        <button type="submit" class="btn btn-primary">
+                                            <i class="fas fa-save me-2"></i>ذخیره
+                                        </button>
+                                        <button type="button" class="btn btn-secondary" onclick="hideCleanupForm()">
+                                            <i class="fas fa-times me-2"></i>انصراف
+                                        </button>
+                                    </div>
+                                </form>
+                            </div>
+                        </div>
+
+                        <!-- Cleanup Schedules List -->
+                        <div class="card">
+                            <div class="card-header">
+                                <h5 class="mb-0"><i class="fas fa-list me-2"></i>زمانبندی‌های پاک‌سازی</h5>
+                            </div>
+                            <div class="card-body">
+                                <div id="cleanupSchedulesContainer">
+                                    <div class="d-flex justify-content-center p-4">
+                                        <div class="spinner-border text-primary" role="status">
+                                            <span class="visually-hidden">در حال بارگذاری...</span>
+                                        </div>
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+
+                    <!-- Test Selector -->
+                    <div id="test" class="content-section">
+                        <div class="d-flex justify-content-between align-items-center mb-4">
+                            <h2><i class="fas fa-vial me-2"></i>تست سلکتور</h2>
+                            <div class="d-flex gap-2">
+                                <button class="btn btn-outline-info btn-sm" onclick="showSelectorHelp()">
+                                    <i class="fas fa-question-circle me-1"></i>راهنما
+                                </button>
+                                <button class="btn btn-outline-secondary btn-sm" onclick="clearTestForm()">
+                                    <i class="fas fa-eraser me-1"></i>پاک کردن
+                                </button>
+                            </div>
+                        </div>
+                        
+                        <div class="row">
+                            <div class="col-lg-5">
+                                <div class="card shadow-sm">
+                                    <div class="card-header bg-primary text-white">
+                                        <h5 class="mb-0"><i class="fas fa-cog me-2"></i>تنظیمات تست</h5>
+                                    </div>
+                                    <div class="card-body">
+                                        <form id="testForm">
+                                            <div class="mb-3">
+                                                <label class="form-label fw-bold">URL صفحه</label>
+                                                <div class="input-group">
+                                                    <span class="input-group-text"><i class="fas fa-link"></i></span>
+                                                    <input type="url" class="form-control" id="testUrl" required placeholder="https://example.com/news">
+                                                </div>
+                                                <div class="form-text">آدرس کامل صفحه‌ای که می‌خواهید تست کنید</div>
+                                            </div>
+                                            
+                                            <div class="mb-3">
+                                                <label class="form-label fw-bold">سلکتور CSS</label>
+                                                <div class="input-group">
+                                                    <span class="input-group-text"><i class="fas fa-code"></i></span>
+                                                    <input type="text" class="form-control" id="testSelector" required placeholder="a[href*='/news/']">
+                                                </div>
+                                                <div class="form-text">سلکتور CSS برای یافتن عناصر مورد نظر</div>
+                                                
+                                                <!-- نمونه سلکتورهای پرکاربرد -->
+                                                <div class="mt-2">
+                                                    <small class="text-muted">نمونه‌های پرکاربرد:</small>
+                                                    <div class="d-flex flex-wrap gap-1 mt-1">
+                                                        <button type="button" class="btn btn-outline-secondary btn-sm" onclick="setSelectorExample('a')">
+                                                            a
+                                                        </button>
+                                                        <button type="button" class="btn btn-outline-secondary btn-sm" onclick="setSelectorExample('a[href*=&quot;/news/&quot;]')">
+                                                            a[href*="/news/"]
+                                                        </button>
+                                                        <button type="button" class="btn btn-outline-secondary btn-sm" onclick="setSelectorExample('.title')">
+                                                            .title
+                                                        </button>
+                                                        <button type="button" class="btn btn-outline-secondary btn-sm" onclick="setSelectorExample('h1, h2, h3')">
+                                                            h1, h2, h3
+                                                        </button>
+                                                        <button type="button" class="btn btn-outline-secondary btn-sm" onclick="setSelectorExample('p')">
+                                                            p
+                                                        </button>
+                                                    </div>
+                                                </div>
+                                            </div>
+                                            
+                                            <div class="mb-3">
+                                                <label class="form-label fw-bold">نوع تست</label>
+                                                <select class="form-select" id="testType">
+                                                    <option value="list">لیست لینک‌ها (برای یافتن لینک‌های اخبار)</option>
+                                                    <option value="content">محتوای متن (برای استخراج متن)</option>
+                                                </select>
+                                                <div class="form-text">نوع اطلاعاتی که می‌خواهید استخراج کنید</div>
+                                            </div>
+                                            
+                                            <div class="mb-3">
+                                                <label class="form-label fw-bold">انتخاب درایور</label>
+                                                <select class="form-select" id="testDriverType">
+                                                    <option value="cheerio">Cheerio (سبک و سریع)</option>
+                                                    <option value="puppeteer" selected>Puppeteer (سریع‌تر)</option>
+                                                    <option value="playwright">Playwright (مدرن و قدرتمند)</option>
+                                                    <option value="selenium">Selenium (پایدارتر)</option>
+                                                </select>
+                                                <div class="form-text">
+                                                    <strong>Cheerio:</strong> سبک‌ترین گزینه، مناسب سایت‌های ساده بدون JavaScript<br>
+                                                    <strong>Puppeteer:</strong> سریع‌تر و کم‌مصرف‌تر، مناسب اکثر مواقع<br>
+                                                    <strong>Playwright:</strong> مدرن و قدرتمند، پشتیبانی از چندین مرورگر<br>
+                                                    <strong>Selenium:</strong> پایدارتر برای سایت‌های پیچیده
+                                                </div>
+                                            </div>
+                                            
+                                            <div class="mb-3">
+                                                <div class="form-check">
+                                                    <input class="form-check-input" type="checkbox" id="advancedMode">
+                                                    <label class="form-check-label" for="advancedMode">
+                                                        حالت پیشرفته (نمایش جزئیات بیشتر)
+                                                    </label>
+                                                </div>
+                                            </div>
+                                            
+                                            <div class="mb-3">
+                                                <div class="form-check">
+                                                    <input class="form-check-input" type="checkbox" id="realtimeLogs" checked>
+                                                    <label class="form-check-label" for="realtimeLogs">
+                                                        نمایش لاگ‌ها به صورت realtime
+                                                    </label>
+                                                </div>
+                                            </div>
+                                            
+                                            <button type="submit" class="btn btn-primary w-100 btn-lg">
+                                                <i class="fas fa-play me-2"></i>اجرای تست
+                                            </button>
+                                        </form>
+                                        
+                                        <!-- آمار سریع -->
+                                        <div class="mt-4 p-3 bg-light rounded">
+                                            <h6 class="text-muted mb-2"><i class="fas fa-chart-bar me-1"></i>آمار تست‌ها</h6>
+                                            <div class="row text-center">
+                                                <div class="col-4">
+                                                    <div class="h6 text-success mb-0" id="successCount">0</div>
+                                                    <small class="text-muted">موفق</small>
+                                                </div>
+                                                <div class="col-4">
+                                                    <div class="h6 text-danger mb-0" id="errorCount">0</div>
+                                                    <small class="text-muted">خطا</small>
+                                                </div>
+                                                <div class="col-4">
+                                                    <div class="h6 text-info mb-0" id="totalCount">0</div>
+                                                    <small class="text-muted">کل</small>
+                                                </div>
+                                            </div>
+                                        </div>
+                                    </div>
+                                </div>
+                            </div>
+                            
+                            <div class="col-lg-7">
+                                <!-- نتیجه تست -->
+                                <div class="card shadow-sm mb-3">
+                                    <div class="card-header bg-success text-white d-flex justify-content-between align-items-center">
+                                        <h5 class="mb-0"><i class="fas fa-chart-line me-2"></i>نتیجه تست</h5>
+                                        <div class="d-flex gap-2">
+                                            <button class="btn btn-light btn-sm" onclick="exportTestResult()" style="display: none;" id="exportBtn">
+                                                <i class="fas fa-download me-1"></i>خروجی
+                                            </button>
+                                            <button class="btn btn-light btn-sm" onclick="clearTestResult()">
+                                                <i class="fas fa-trash me-1"></i>پاک کردن
+                                            </button>
+                                        </div>
+                                    </div>
+                                    <div class="card-body" style="min-height: 300px;">
+                                        <div id="testResult" class="h-100 d-flex align-items-center justify-content-center text-muted">
+                                            <div class="text-center">
+                                                <i class="fas fa-flask fa-3x mb-3 text-muted"></i>
+                                                <h5>آماده برای تست</h5>
+                                                <p class="mb-0">URL و سلکتور را وارد کرده و دکمه "اجرای تست" را بزنید</p>
+                                            </div>
+                                        </div>
+                                    </div>
+                                </div>
+                                
+                                <!-- لاگ‌های realtime -->
+                                <div class="card shadow-sm" id="realtimeLogsCard" style="display: none;">
+                                    <div class="card-header bg-dark text-white d-flex justify-content-between align-items-center">
+                                        <h6 class="mb-0"><i class="fas fa-terminal me-2"></i>لاگ‌های realtime</h6>
+                                        <div class="d-flex gap-2">
+                                            <button class="btn btn-outline-light btn-sm" onclick="toggleAutoScroll()" id="autoScrollBtn">
+                                                <i class="fas fa-arrow-down me-1"></i>Auto Scroll
+                                            </button>
+                                            <button class="btn btn-outline-light btn-sm" onclick="clearLogs()">
+                                                <i class="fas fa-eraser me-1"></i>پاک کردن
+                                            </button>
+                                        </div>
+                                    </div>
+                                    <div class="card-body p-0">
+                                        <div id="realtimeLogs" class="bg-dark text-light p-3" style="height: 250px; overflow-y: auto; font-family: 'Courier New', monospace; font-size: 12px; line-height: 1.4;">
+                                            <div class="text-muted">در انتظار شروع تست...</div>
+                                        </div>
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+                        
+                        <!-- راهنمای سریع -->
+                        <div class="row mt-4">
+                            <div class="col-12">
+                                <div class="card border-info">
+                                    <div class="card-header bg-info text-white">
+                                        <h6 class="mb-0"><i class="fas fa-lightbulb me-2"></i>نکات مفید</h6>
+                                    </div>
+                                    <div class="card-body">
+                                        <div class="row">
+                                            <div class="col-md-6">
+                                                <h6 class="text-info">سلکتورهای پرکاربرد:</h6>
+                                                <ul class="small mb-0">
+                                                    <li><code>a</code> - تمام لینک‌ها</li>
+                                                    <li><code>a[href*="/news/"]</code> - لینک‌های حاوی "/news/"</li>
+                                                    <li><code>.title, .headline</code> - عناصر با کلاس title یا headline</li>
+                                                    <li><code>h1, h2, h3</code> - تیترهای سطح 1 تا 3</li>
+                                                </ul>
+                                            </div>
+                                            <div class="col-md-6">
+                                                <h6 class="text-info">نکات مهم:</h6>
+                                                <ul class="small mb-0">
+                                                    <li>برای تست سلکتور، ابتدا صفحه را در مرورگر باز کنید</li>
+                                                    <li>از Developer Tools برای یافتن سلکتور مناسب استفاده کنید</li>
+                                                    <li>سلکتورهای ساده معمولاً بهتر عمل می‌کنند</li>
+                                                    <li>در صورت خطای timeout، سلکتور ساده‌تری امتحان کنید</li>
+                                                </ul>
+                                            </div>
+                                        </div>
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+
+                    <!-- WebDriver Management -->
+                    <div id="webdriver" class="content-section">
+                        <div class="d-flex justify-content-between align-items-center mb-4">
+                            <h2><i class="fas fa-cogs me-2"></i>مدیریت درایور وب</h2>
+                            <div class="d-flex gap-2">
+                                <button class="btn btn-outline-success btn-sm" id="refreshDriverBtn" onclick="refreshWebDriverStatus()">
+                                    <i class="fas fa-sync-alt me-1"></i>به‌روزرسانی وضعیت
+                                </button>
+                                <button class="btn btn-outline-warning btn-sm" id="cleanupDriverBtn" onclick="performWebDriverCleanup()">
+                                    <i class="fas fa-broom me-1"></i>پاکسازی منابع
+                                </button>
+                            </div>
+                        </div>
+                        
+                        <div class="row">
+                            <!-- Current Status -->
+                            <div class="col-lg-6">
+                                <div class="card shadow-sm mb-4">
+                                    <div class="card-header bg-primary text-white">
+                                        <h5 class="mb-0"><i class="fas fa-info-circle me-2"></i>وضعیت فعلی درایور</h5>
+                                    </div>
+                                    <div class="card-body">
+                                        <div id="webDriverCurrentStatus">
+                                            <div class="row">
+                                                <div class="col-6">
+                                                    <strong>نوع درایور:</strong>
+                                                    <span id="currentDriverType" class="text-primary">-</span>
+                                                </div>
+                                                <div class="col-6">
+                                                    <strong>وضعیت:</strong>
+                                                    <span id="driverStatus" class="badge bg-secondary">-</span>
+                                                </div>
+                                            </div>
+                                        </div>
+                                    </div>
+                                </div>
+                            </div>
+                            
+                            <!-- Driver Selection -->
+                            <div class="col-lg-6">
+                                <div class="card shadow-sm mb-4">
+                                    <div class="card-header bg-success text-white">
+                                        <h5 class="mb-0"><i class="fas fa-exchange-alt me-2"></i>تغییر نوع درایور</h5>
+                                    </div>
+                                    <div class="card-body">
+                                        <div class="mb-3">
+                                            <label class="form-label fw-bold">انتخاب درایور:</label>
+                                            <select class="form-select" id="driverTypeSelect">
+                                                <option value="">در حال بارگذاری...</option>
+                                            </select>
+                                            <div class="form-text">نوع درایور وب برای کرال کردن صفحات</div>
+                                        </div>
+                                        
+                                        <div class="alert alert-info">
+                            <i class="fas fa-info-circle me-2"></i>
+                            <strong>Puppeteer:</strong> سریع‌تر و کم‌مصرف‌تر، مناسب اکثر مواقع<br>
+                            <strong>Selenium:</strong> پایدارتر برای سایت‌های پیچیده، نیاز به Chrome driver<br>
+                            <strong>Playwright:</strong> مدرن و قدرتمند، پشتیبانی از چندین مرورگر<br>
+                            <strong>Cheerio:</strong> سبک‌ترین گزینه، مناسب سایت‌های ساده بدون JavaScript
+                        </div>
+                                        
+                                        <button class="btn btn-success w-100" onclick="switchWebDriver()" id="switchDriverBtn" disabled>
+                                            <i class="fas fa-exchange-alt me-1"></i>تغییر درایور
+                                        </button>
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+                        
+                        <!-- Performance Stats -->
+                        <div class="row">
+                            <div class="col-12">
+                                <div class="card shadow-sm">
+                                    <div class="card-header bg-info text-white">
+                                        <h5 class="mb-0"><i class="fas fa-chart-line me-2"></i>آمار عملکرد و مصرف منابع</h5>
+                                    </div>
+                                    <div class="card-body">
+                                        <div id="webDriverPerformanceStats">
+                                            <div class="row">
+                                                <div class="col-md-4">
+                                                    <div class="text-center">
+                                                        <h6 class="text-muted">مصرف حافظه</h6>
+                                                        <span id="memoryUsage" class="h5 text-info">-</span>
+                                                    </div>
+                                                </div>
+                                                <div class="col-md-4">
+                                                    <div class="text-center">
+                                                        <h6 class="text-muted">مصرف Heap</h6>
+                                                        <span id="heapUsage" class="h5 text-warning">-</span>
+                                                    </div>
+                                                </div>
+                                                <div class="col-md-4">
+                                                    <div class="text-center">
+                                                        <h6 class="text-muted">مدت فعالیت</h6>
+                                                        <span id="uptime" class="h5 text-success">-</span>
+                                                    </div>
+                                                </div>
+                                            </div>
+                                        </div>
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Modal: Add Source -->
+    <div class="modal fade" id="addSourceModal" tabindex="-1">
+        <div class="modal-dialog modal-lg">
+            <div class="modal-content">
+                <div class="modal-header">
+                    <h5 class="modal-title">افزودن منبع خبری جدید</h5>
+                    <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+                </div>
+                <div class="modal-body">
+                    <form id="addSourceForm">
+                        <div class="row">
+                            <div class="col-md-6">
+                                <div class="mb-3">
+                                    <label class="form-label">نام منبع</label>
+                                    <input type="text" class="form-control" id="sourceName">
+                                </div>
+                            </div>
+                            <div class="col-md-6">
+                                <div class="mb-3">
+                                    <label class="form-label">URL پایه</label>
+                                    <input type="url" class="form-control" id="sourceUrl">
+                                </div>
+                            </div>
+                        </div>
+                        <div class="mb-3">
+                            <label class="form-label">سلکتور لیست اخبار</label>
+                            <input type="text" class="form-control" id="listSelector" placeholder="a[href*='/news/']">
+                            <div class="form-text">سلکتور CSS برای یافتن لینک‌های اخبار</div>
+                        </div>
+                        <!-- سلکتورهای اصلی -->
+                        <div class="row">
+                            <div class="col-md-6">
+                                <div class="mb-3">
+                                    <label class="form-label">سلکتور عنوان</label>
+                                    <div class="selector-group">
+                                        <input type="text" class="form-control" id="titleSelector" placeholder="h1, .title">
+                                        <button type="button" class="btn btn-sm btn-outline-primary mt-1" onclick="addSelectorField('title')">
+                                            <i class="fas fa-plus"></i> افزودن سلکتور
+                                        </button>
+                                        <div id="titleSelectorsContainer"></div>
+                                    </div>
+                                </div>
+                            </div>
+                            <div class="col-md-6">
+                                <div class="mb-3">
+                                    <label class="form-label">سلکتور لینک</label>
+                                    <input type="text" class="form-control" id="linkSelector" placeholder="a">
+                                </div>
+                            </div>
+                        </div>
+                        
+                        <div class="row">
+                            <div class="col-md-6">
+                                <div class="mb-3">
+                                    <label class="form-label">سلکتور محتوا</label>
+                                    <div class="selector-group">
+                                        <input type="text" class="form-control" id="contentSelector" placeholder=".content, .story, p">
+                                        <button type="button" class="btn btn-sm btn-outline-primary mt-1" onclick="addSelectorField('content')">
+                                            <i class="fas fa-plus"></i> افزودن سلکتور
+                                        </button>
+                                        <div id="contentSelectorsContainer"></div>
+                                    </div>
+                                </div>
+                            </div>
+                            <div class="col-md-6">
+                                <div class="mb-3">
+                                    <label class="form-label">سلکتور لید</label>
+                                    <div class="selector-group">
+                                        <input type="text" class="form-control" id="leadSelector" placeholder=".lead, .summary">
+                                        <button type="button" class="btn btn-sm btn-outline-primary mt-1" onclick="addSelectorField('lead')">
+                                            <i class="fas fa-plus"></i> افزودن سلکتور
+                                        </button>
+                                        <div id="leadSelectorsContainer"></div>
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+                        
+                        <div class="mb-3">
+                            <label class="form-label">سلکتور روتیتر</label>
+                            <div class="selector-group">
+                                <input type="text" class="form-control" id="routerSelector" placeholder=".author, .reporter">
+                                <button type="button" class="btn btn-sm btn-outline-primary mt-1" onclick="addSelectorField('router')">
+                                    <i class="fas fa-plus"></i> افزودن سلکتور
+                                </button>
+                                <div id="routerSelectorsContainer"></div>
+                            </div>
+                        </div>
+                        <div class="mb-3">
+                            <label class="form-label">نوع درایور</label>
+                            <select class="form-select" id="driverType">
+                                <option value="puppeteer" selected>Puppeteer (سریع‌تر)</option>
+                                <option value="selenium">Selenium (پایدارتر)</option>
+                                <option value="playwright">Playwright (مدرن و قدرتمند)</option>
+                                <option value="cheerio">Cheerio (سبک و سریع)</option>
+                            </select>
+                            <div class="form-text">Puppeteer/Playwright برای سایت‌های پیچیده، Selenium برای پایداری بالا، Cheerio برای سایت‌های ساده</div>
+                        </div>
+                    </form>
+                </div>
+                <div class="modal-footer">
+                    <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">انصراف</button>
+                    <button type="button" class="btn btn-primary" onclick="addSource()">افزودن منبع</button>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Modal: Edit Source -->
+    <div class="modal fade" id="editSourceModal" tabindex="-1">
+        <div class="modal-dialog modal-lg">
+            <div class="modal-content">
+                <div class="modal-header">
+                    <h5 class="modal-title">ویرایش منبع خبری</h5>
+                    <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+                </div>
+                <div class="modal-body">
+                    <form id="editSourceForm">
+                        <input type="hidden" id="editSourceId">
+                        <div class="row">
+                            <div class="col-md-6">
+                                <div class="mb-3">
+                                    <label class="form-label">نام منبع</label>
+                                    <input type="text" class="form-control" id="editSourceName">
+                                </div>
+                            </div>
+                            <div class="col-md-6">
+                                <div class="mb-3">
+                                    <label class="form-label">URL پایه</label>
+                                    <input type="url" class="form-control" id="editSourceUrl">
+                                </div>
+                            </div>
+                        </div>
+                        <div class="mb-3">
+                            <label class="form-label">سلکتور لیست اخبار</label>
+                            <input type="text" class="form-control" id="editListSelector" placeholder="a[href*='/news/']">
+                            <div class="form-text">سلکتور CSS برای یافتن لینک‌های اخبار</div>
+                        </div>
+                        <!-- سلکتورهای اصلی -->
+                        <div class="row">
+                            <div class="col-md-6">
+                                <div class="mb-3">
+                                    <label class="form-label">سلکتور عنوان</label>
+                                    <div class="selector-group">
+                                        <input type="text" class="form-control" id="editTitleSelector" placeholder="h1, .title">
+                                        <button type="button" class="btn btn-sm btn-outline-primary mt-1" onclick="addEditSelectorField('title')">
+                                            <i class="fas fa-plus"></i> افزودن سلکتور
+                                        </button>
+                                        <div id="editTitleSelectorsContainer"></div>
+                                    </div>
+                                </div>
+                            </div>
+                            <div class="col-md-6">
+                                <div class="mb-3">
+                                    <label class="form-label">سلکتور لینک</label>
+                                    <input type="text" class="form-control" id="editLinkSelector" placeholder="a">
+                                </div>
+                            </div>
+                        </div>
+                        
+                        <div class="row">
+                            <div class="col-md-6">
+                                <div class="mb-3">
+                                    <label class="form-label">سلکتور محتوا</label>
+                                    <div class="selector-group">
+                                        <input type="text" class="form-control" id="editContentSelector" placeholder=".content, .story, p">
+                                        <button type="button" class="btn btn-sm btn-outline-primary mt-1" onclick="addEditSelectorField('content')">
+                                            <i class="fas fa-plus"></i> افزودن سلکتور
+                                        </button>
+                                        <div id="editContentSelectorsContainer"></div>
+                                    </div>
+                                </div>
+                            </div>
+                            <div class="col-md-6">
+                                <div class="mb-3">
+                                    <label class="form-label">سلکتور لید</label>
+                                    <div class="selector-group">
+                                        <input type="text" class="form-control" id="editLeadSelector" placeholder=".lead, .summary">
+                                        <button type="button" class="btn btn-sm btn-outline-primary mt-1" onclick="addEditSelectorField('lead')">
+                                            <i class="fas fa-plus"></i> افزودن سلکتور
+                                        </button>
+                                        <div id="editLeadSelectorsContainer"></div>
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+                        
+                        <div class="mb-3">
+                            <label class="form-label">سلکتور روتیتر</label>
+                            <div class="selector-group">
+                                <input type="text" class="form-control" id="editRouterSelector" placeholder=".author, .reporter">
+                                <button type="button" class="btn btn-sm btn-outline-primary mt-1" onclick="addEditSelectorField('router')">
+                                    <i class="fas fa-plus"></i> افزودن سلکتور
+                                </button>
+                                <div id="editRouterSelectorsContainer"></div>
+                            </div>
+                        </div>
+                        <div class="mb-3">
+                            <label class="form-label">نوع درایور</label>
+                            <select class="form-select" id="editDriverType">
+                                <option value="puppeteer">Puppeteer (سریع‌تر)</option>
+                                <option value="selenium">Selenium (پایدارتر)</option>
+                                <option value="playwright">Playwright (مدرن و قدرتمند)</option>
+                                <option value="cheerio">Cheerio (سبک و سریع)</option>
+                            </select>
+                            <div class="form-text">Puppeteer/Playwright برای سایت‌های پیچیده، Selenium برای پایداری بالا، Cheerio برای سایت‌های ساده</div>
+                        </div>
+                        <div class="mb-3">
+                            <div class="form-check">
+                                <input class="form-check-input" type="checkbox" id="editSourceActive">
+                                <label class="form-check-label" for="editSourceActive">
+                                    منبع فعال است
+                                </label>
+                            </div>
+                        </div>
+                    </form>
+                </div>
+                <div class="modal-footer">
+                    <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">انصراف</button>
+                    <button type="button" class="btn btn-primary" onclick="updateSource()">به‌روزرسانی منبع</button>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Manual Cleanup Modal -->
+    <div class="modal fade" id="manualCleanupModal" tabindex="-1">
+        <div class="modal-dialog">
+            <div class="modal-content">
+                <div class="modal-header">
+                    <h5 class="modal-title"><i class="fas fa-trash me-2"></i>پاک‌سازی دستی اخبار</h5>
+                    <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+                </div>
+                <div class="modal-body">
+                    <div class="alert alert-warning">
+                        <i class="fas fa-exclamation-triangle me-2"></i>
+                        این عملیات قدیمی‌ترین مقالات را حذف می‌کند و قابل برگشت نیست!
+                    </div>
+                    <div class="mb-3">
+                        <label class="form-label">تعداد مقالات باقی‌مانده</label>
+                        <input type="number" class="form-control" id="manualKeepCount" min="100" max="50000" value="1000">
+                        <div class="form-text">تعداد مقالات جدید که باقی می‌مانند</div>
+                    </div>
+                    <div id="cleanupProgress" style="display: none;">
+                        <div class="progress mb-2">
+                            <div class="progress-bar progress-bar-striped progress-bar-animated" role="progressbar" style="width: 100%"></div>
+                        </div>
+                        <small class="text-muted">در حال پاک‌سازی...</small>
+                    </div>
+                </div>
+                <div class="modal-footer">
+                    <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">انصراف</button>
+                    <button type="button" class="btn btn-danger" onclick="performManualCleanup()">
+                        <i class="fas fa-trash me-1"></i>شروع پاک‌سازی
+                    </button>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Log Details Modal -->
+    <div class="modal fade" id="logDetailsModal" tabindex="-1">
+        <div class="modal-dialog modal-lg">
+            <div class="modal-content">
+                <div class="modal-header">
+                    <h5 class="modal-title"><i class="fas fa-info-circle me-2"></i>جزئیات لاگ</h5>
+                    <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+                </div>
+                <div class="modal-body">
+                    <div class="row mb-3">
+                        <div class="col-md-6">
+                            <strong>زمان:</strong>
+                            <span id="logDetailTime" class="text-muted"></span>
+                        </div>
+                        <div class="col-md-6">
+                            <strong>منبع:</strong>
+                            <span id="logDetailSource" class="text-muted"></span>
+                        </div>
+                    </div>
+                    <div class="row mb-3">
+                        <div class="col-md-6">
+                            <strong>عملیات:</strong>
+                            <span id="logDetailAction" class="badge bg-info"></span>
+                        </div>
+                        <div class="col-md-6">
+                            <strong>وضعیت:</strong>
+                            <span id="logDetailStatus" class="badge"></span>
+                        </div>
+                    </div>
+                    <div class="row mb-3">
+                        <div class="col-md-6">
+                            <strong>مقالات یافت شده:</strong>
+                            <span id="logDetailFound" class="text-muted"></span>
+                        </div>
+                        <div class="col-md-6">
+                            <strong>مقالات پردازش شده:</strong>
+                            <span id="logDetailProcessed" class="text-muted"></span>
+                        </div>
+                    </div>
+                    <div class="mb-3">
+                        <strong>پیام کامل:</strong>
+                        <div class="mt-2">
+                            <pre id="logDetailMessage" class="bg-light p-3 rounded" style="white-space: pre-wrap; max-height: 300px; overflow-y: auto;"></pre>
+                        </div>
+                    </div>
+                    <div id="logDetailError" class="alert alert-danger" style="display: none;">
+                        <strong><i class="fas fa-exclamation-triangle me-2"></i>جزئیات خطا:</strong>
+                        <div class="mt-2">
+                            <pre id="logDetailErrorMessage" style="white-space: pre-wrap;"></pre>
+                        </div>
+                    </div>
+                </div>
+                <div class="modal-footer">
+                    <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">بستن</button>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.1.3/dist/js/bootstrap.bundle.min.js"></script>
+    <script src="admin.js"></script>
+</body>
+</html>

@@ -1,0 +1,98 @@
+<!DOCTYPE html>
+<html lang="fa" dir="rtl">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>مدیریت زمان‌بندی‌ها</title>
+  <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/css/bootstrap.rtl.min.css">
+  <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0/css/all.min.css">
+  <link rel="stylesheet" href="styles.css">
+</head>
+<body>
+  <div class="container-fluid">
+    <div class="row">
+      <nav id="sidebar" class="col-md-3 col-lg-2 d-md-block bg-light sidebar collapse">
+        <div class="position-sticky pt-3">
+          <ul class="nav flex-column">
+            <li class="nav-item">
+              <a class="nav-link" href="/admin">
+                داشبورد
+              </a>
+            </li>
+            <li class="nav-item">
+              <a class="nav-link" href="/admin/sources.html">
+                منابع خبری
+              </a>
+            </li>
+            <li class="nav-item">
+                <a class="nav-link active" aria-current="page" href="/admin/schedules.html">
+                    زمان‌بندی‌ها
+                </a>
+            </li>
+          </ul>
+        </div>
+      </nav>
+
+      <main class="col-md-9 ms-sm-auto col-lg-10 px-md-4">
+        <div class="d-flex justify-content-between flex-wrap flex-md-nowrap align-items-center pt-3 pb-2 mb-3 border-bottom">
+          <h1 class="h2">مدیریت زمان‌بندی‌ها</h1>
+          <div>
+            <a href="/admin" class="btn btn-outline-secondary">
+              <i class="fas fa-arrow-right me-2"></i>بازگشت به پنل اصلی
+            </a>
+          </div>
+        </div>
+
+        <div class="card">
+          <div class="card-header">
+            افزودن/ویرایش زمان‌بندی
+          </div>
+          <div class="card-body">
+            <form id="schedule-form">
+              <input type="hidden" id="schedule-id">
+              <div class="mb-3">
+                <label for="source-id" class="form-label">منبع خبری</label>
+                <select class="form-select" id="source-id" required></select>
+              </div>
+              <div class="mb-3">
+                <label for="cron-expression" class="form-label">عبارت Cron</label>
+                <input type="text" class="form-control" id="cron-expression" placeholder="0 */6 * * *" required>
+                <div class="form-text">مثال: 0 */6 * * * (هر 6 ساعت یکبار)</div>
+              </div>
+              <div class="form-check mb-3">
+                <input class="form-check-input" type="checkbox" id="is-active" checked>
+                <label class="form-check-label" for="is-active">
+                  فعال
+                </label>
+              </div>
+              <button type="submit" class="btn btn-primary">ذخیره</button>
+              <button type="button" class="btn btn-secondary" id="cancel-edit">انصراف</button>
+            </form>
+          </div>
+        </div>
+
+        <div class="table-responsive mt-4">
+          <table class="table table-striped table-sm">
+            <thead>
+              <tr>
+                <th>#</th>
+                <th>منبع خبری</th>
+                <th>عبارت Cron</th>
+                <th>فعال</th>
+                <th>آخرین اجرا</th>
+                <th>اجرای بعدی</th>
+                <th>عملیات</th>
+              </tr>
+            </thead>
+            <tbody id="schedules-table-body">
+            </tbody>
+          </table>
+        </div>
+      </main>
+    </div>
+  </div>
+
+  <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/js/bootstrap.bundle.min.js"></script>
+  <script src="schedules.js"></script>
+</body>
+</html>
