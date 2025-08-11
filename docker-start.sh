@@ -93,9 +93,11 @@ docker-compose ps
 
 echo ""
 echo "🌐 Service access:"
-echo "   Admin Panel: http://localhost:3004/admin"
-echo "   API: http://localhost:3004/api"
-echo "   RSS Feed: http://localhost:3004/rss"
+echo "   Admin Panel: http://localhost:3005/admin"
+echo "   API: http://localhost:3005/api"
+echo "   RSS Feed: http://localhost:3005/rss"
+echo "   PostgreSQL: localhost:5433"
+echo "   Redis: localhost:6380"
 echo ""
 
 echo "Useful commands:"
