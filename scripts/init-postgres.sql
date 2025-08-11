@@ -1,12 +1,11 @@
--- PostgreSQL Initial Setup Script for News Crawler
--- Runs on first container start
--- Database and user are already created by Docker environment variables
+-- PostgreSQL Database Initialization Script for Crawler
+-- This script runs automatically when PostgreSQL container starts for the first time
 
--- Extensions
+-- Create extensions
 CREATE EXTENSION IF NOT EXISTS "uuid-ossp";
 CREATE EXTENSION IF NOT EXISTS "pg_trgm";
 
--- Tables
+-- Create tables
 CREATE TABLE IF NOT EXISTS news_sources (
   id SERIAL PRIMARY KEY,
   name TEXT NOT NULL UNIQUE,
@@ -146,7 +145,7 @@ CREATE TABLE IF NOT EXISTS cleanup_schedules (
   updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
 );
 
--- Indexes
+-- Create indexes for better performance
 CREATE INDEX IF NOT EXISTS idx_articles_created_at ON articles(created_at);
 CREATE INDEX IF NOT EXISTS idx_articles_source_id ON articles(source_id);
 CREATE INDEX IF NOT EXISTS idx_articles_hash ON articles(hash);
@@ -158,7 +157,7 @@ CREATE INDEX IF NOT EXISTS idx_queue_status_priority ON queue_jobs(status, prior
 CREATE INDEX IF NOT EXISTS idx_crawl_logs_source_id ON crawl_logs(source_id);
 CREATE INDEX IF NOT EXISTS idx_operation_logs_source_id ON operation_logs(source_id);
 
--- Seed data
+-- Insert default news sources
 INSERT INTO news_sources (name, base_url, list_selector, title_selector, content_selector, link_selector)
 VALUES 
   ('فارس‌نیوز', 'https://www.farsnews.ir/showcase', 'a[href*="/news/"]', 'h1, .title', '.story, .content, .news-content, p', 'a'),
@@ -167,18 +166,10 @@ VALUES
   ('ایرنا', 'https://www.irna.ir/news', 'a[href*="/news/"]', 'h1, .title', '.content, .news-content, p', 'a')
 ON CONFLICT (name) DO NOTHING;
 
--- Default admin
+-- Insert default admin user (password: admin123)
 INSERT INTO admin_users (username, password_hash, email)
 VALUES ('admin', '$2a$10$6Pf5M88A/ih16lsZQplsledbO/vIqoIc5QJ49RwLaCHkxqjgk/DQa', 'admin@crawler.local')
 ON CONFLICT (username) DO UPDATE SET password_hash = EXCLUDED.password_hash, email = EXCLUDED.email;
 
--- Permissions (user already owns the database)
-GRANT ALL PRIVILEGES ON ALL TABLES IN SCHEMA public TO CURRENT_USER;
-GRANT ALL PRIVILEGES ON ALL SEQUENCES IN SCHEMA public TO CURRENT_USER;
-ALTER DEFAULT PRIVILEGES IN SCHEMA public GRANT ALL ON TABLES TO CURRENT_USER;
-ALTER DEFAULT PRIVILEGES IN SCHEMA public GRANT ALL ON SEQUENCES TO CURRENT_USER;
-
--- Analyze
-ANALYZE;
-
-\echo 'PostgreSQL setup completed successfully!' 
+-- Update table statistics
+ANALYZE; 

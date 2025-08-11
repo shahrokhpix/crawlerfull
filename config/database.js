@@ -30,11 +30,13 @@ class Database {
     if (this.isInitialized) return;
     
     try {
-      await this.createTables();
+      // Tables are created by init-postgres.sql in Docker
+      // Just test connection
+      await this.pool.query('SELECT 1');
       this.isInitialized = true;
-      logger.info('Database با PostgreSQL راه‌اندازی شد');
+      logger.info('✅ Database connection established with PostgreSQL');
     } catch (error) {
-      logger.error('خطا در راه‌اندازی database:', error);
+      logger.error('❌ Database connection failed:', error);
       throw error;
     }
   }
