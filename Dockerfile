@@ -30,8 +30,6 @@ COPY package*.json ./
 
 # Configure npm for Iranian mirrors and install dependencies
 RUN npm config set registry https://registry.npmmirror.com && \
-    npm config set puppeteer_skip_chromium_download true && \
-    npm config set puppeteer_skip_download true && \
     npm install --only=production --ignore-scripts && \
     npm cache clean --force
 

@@ -30,8 +30,6 @@ COPY package*.json .npmrc ./
 
 # Configure npm for Iranian mirrors and install dependencies
 RUN npm config set registry https://registry.npmmirror.com && \
-    npm config set puppeteer_skip_chromium_download true && \
-    npm config set puppeteer_skip_download true && \
     npm config set disturl https://npmmirror.com/mirrors/node && \
     npm config set sass_binary_site https://npmmirror.com/mirrors/node-sass/ && \
     npm config set phantomjs_cdnurl https://npmmirror.com/mirrors/phantomjs/ && \

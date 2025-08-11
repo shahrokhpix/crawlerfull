@@ -1,87 +1,105 @@
 #!/bin/bash
 
-echo "🐳 راه‌اندازی کرالر خبری با Docker"
+echo "🐳 Starting News Crawler with Docker"
 echo "========================================"
 
-# بررسی وجود Docker
+# Check if Docker is installed
 if ! command -v docker &> /dev/null; then
-    echo "❌ Docker یافت نشد. لطفاً Docker را نصب کنید."
+    echo "❌ Docker not found. Please install Docker."
     exit 1
 fi
 
-# بررسی وجود Docker Compose
+# Check if Docker Compose is installed
 if ! command -v docker-compose &> /dev/null; then
-    echo "❌ Docker Compose یافت نشد. لطفاً Docker Compose را نصب کنید."
+    echo "❌ Docker Compose not found. Please install Docker Compose."
     exit 1
 fi
 
-echo "✅ Docker و Docker Compose آماده هستند"
+echo "✅ Docker and Docker Compose are ready"
 echo ""
 
-# بررسی وجود فایل .env
+# Check if .env file exists
 if [ ! -f ".env" ]; then
-    echo "⚠️ فایل .env یافت نشد. فایل .env.example کپی می‌شود..."
+    echo "⚠️ .env file not found. Copying from .env.example..."
     cp .env.example .env
-    echo "✅ فایل .env ایجاد شد. لطفاً تنظیمات را بررسی کنید."
+    echo "✅ .env file created. Please check the settings."
     echo ""
 fi
 
-echo "انتخاب نوع اجرا:"
-echo "1. اجرای کامل (پیشنهادی)"
-echo "2. اجرا بدون Nginx"
-echo "3. اجرا با PM2"
-echo "4. اجرا در حالت توسعه"
-echo "5. پاک کردن و اجرای مجدد"
+echo "Select execution type:"
+echo "1. Full execution (Recommended)"
+echo "2. Execute without Nginx"
+echo "3. Execute with PM2"
+echo "4. Execute in development mode"
+echo "5. Execute without Puppeteer (for problematic servers)"
+echo "6. Execute with alternative Dockerfile"
+echo "7. Execute with Iranian mirrors (Recommended for Iran)"
+echo "8. Clean and restart"
 echo ""
 
-read -p "لطفاً نوع اجرا را انتخاب کنید (1-5): " choice
+read -p "Please select execution type (1-8): " choice
 
 case $choice in
     1)
-        echo "🚀 اجرای کامل پروژه..."
+        echo "🚀 Starting full project..."
         docker-compose up -d
         ;;
     2)
-        echo "🚀 اجرا بدون Nginx..."
+        echo "🚀 Execute without Nginx..."
         docker-compose up -d postgres redis crawler
         ;;
     3)
-        echo "🚀 اجرا با PM2..."
+        echo "🚀 Execute with PM2..."
         docker-compose --profile pm2 up -d
         ;;
     4)
-        echo "🚀 اجرا در حالت توسعه..."
+        echo "🚀 Execute in development mode..."
         docker-compose -f docker-compose.yml -f docker-compose.dev.yml up -d
         ;;
     5)
-        echo "🧹 پاک کردن و اجرای مجدد..."
+        echo "🚀 Execute without Puppeteer..."
+        docker-compose -f docker-compose.yml build --build-arg DOCKERFILE=Dockerfile.no-puppeteer
+        docker-compose up -d postgres redis crawler
+        ;;
+    6)
+        echo "🚀 Execute with alternative Dockerfile..."
+        docker-compose -f docker-compose.yml build --build-arg DOCKERFILE=Dockerfile.alpine
+        docker-compose up -d
+        ;;
+    7)
+        echo "🚀 Execute with Iranian mirrors..."
+        docker-compose -f docker-compose.yml build --build-arg DOCKERFILE=Dockerfile.iran
+        docker-compose up -d
+        ;;
+    8)
+        echo "🧹 Clean and restart..."
         docker-compose down -v
         docker-compose build --no-cache
         docker-compose up -d
         ;;
     *)
-        echo "❌ انتخاب نامعتبر"
+        echo "❌ Invalid selection"
         exit 1
         ;;
 esac
 
 echo ""
-echo "⏳ منتظر راه‌اندازی سرویس‌ها..."
+echo "⏳ Waiting for services to start..."
 sleep 10
 
 echo ""
-echo "📊 وضعیت کانتینرها:"
+echo "📊 Container status:"
 docker-compose ps
 
 echo ""
-echo "🌐 دسترسی به سرویس‌ها:"
-echo "   پنل ادمین: http://localhost:3004/admin"
+echo "🌐 Service access:"
+echo "   Admin Panel: http://localhost:3004/admin"
 echo "   API: http://localhost:3004/api"
 echo "   RSS Feed: http://localhost:3004/rss"
 echo ""
 
-echo "دستورات مفید:"
-echo "  مشاهده لاگ‌ها: docker-compose logs -f"
-echo "  توقف: docker-compose down"
-echo "  راه‌اندازی مجدد: docker-compose restart"
+echo "Useful commands:"
+echo "  View logs: docker-compose logs -f"
+echo "  Stop: docker-compose down"
+echo "  Restart: docker-compose restart"
 echo "" 
