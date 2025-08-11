@@ -242,6 +242,16 @@ app.use('/admin', express.static(path.join(__dirname, 'public', 'admin'), {
   }
 }));
 
+// Ensure /admin returns index.html (without trailing slash)
+app.get('/admin', (req, res) => {
+  res.sendFile(path.join(__dirname, 'public', 'admin', 'index.html'));
+});
+
+// Also provide a basic health endpoint for Docker and uptime checks
+app.get('/api/health', (req, res) => {
+  res.status(200).json({ status: 'ok', uptime: process.uptime() });
+});
+
 app.use(cookieParser());
 
 // API Routes - New system
