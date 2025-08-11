@@ -36,8 +36,10 @@ RUN npm config set registry https://registry.npmmirror.com && \
 # Copy application code
 COPY . .
 
-# Create required directories
+# Create required directories with proper permissions
 RUN mkdir -p logs data config public && \
+    chmod 755 /app && \
+    chmod -R 755 logs data config public && \
     chown -R node:node /app
 
 # Switch to node user for security

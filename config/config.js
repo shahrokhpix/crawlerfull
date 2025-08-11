@@ -4,9 +4,9 @@ module.exports = {
   database: {
     host: process.env.DB_HOST || 'localhost',
     port: process.env.DB_PORT || 5432,
-    database: process.env.DB_NAME || 'farsnews_crawler_spider_db',
-    user: process.env.DB_USER || 'farsnews_user',
-    password: process.env.DB_PASSWORD || 'farsnews123',
+    database: process.env.DB_NAME || 'crawler_db',
+    user: process.env.DB_USER || 'crawler_user',
+    password: process.env.DB_PASSWORD || 'your_secure_password',
     max: 20,
     idleTimeoutMillis: 30000,
     connectionTimeoutMillis: 2000,

@@ -4,10 +4,10 @@ const logger = require('../utils/logger');
 class PostgreSQLDatabase {
   constructor() {
     this.pool = new Pool({
-      user: process.env.DB_USER || 'farsnews_user',
+      user: process.env.DB_USER || 'crawler_user',
       host: process.env.DB_HOST || 'localhost',
-      database: process.env.DB_NAME || 'farsnews_crawler_spider_db',
-      password: process.env.DB_PASSWORD || 'farsnews123',
+      database: process.env.DB_NAME || 'crawler_db',
+      password: process.env.DB_PASSWORD || 'your_secure_password',
       port: process.env.DB_PORT || 5432,
       max: 20, // connection pool size
       idleTimeoutMillis: 30000,

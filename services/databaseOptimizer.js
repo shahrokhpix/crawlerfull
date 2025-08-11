@@ -258,8 +258,8 @@ class DatabaseOptimizer {
     try {
       const result = await this.db.query(`
         SELECT 
-          pg_size_pretty(pg_database_size('farsnews_crawler_spider_db')) as size,
-          pg_database_size('farsnews_crawler_spider_db') as size_bytes
+                pg_size_pretty(pg_database_size('crawler_db')) as size,
+      pg_database_size('crawler_db') as size_bytes
       `);
       
       if (result && (result.rows || []).length > 0) {

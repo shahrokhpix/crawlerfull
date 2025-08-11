@@ -10,7 +10,7 @@ class PostgreSQLOnlySetup {
     this.postgresConfig = {
       user: process.env.DB_USER || 'farsnews_user',
       host: process.env.DB_HOST || 'localhost',
-      database: process.env.DB_NAME || 'farsnews_crawler_spider_db',
+      database: process.env.DB_NAME || 'crawler_db',
       password: process.env.DB_PASSWORD || 'farsnews123',
       port: process.env.DB_PORT || 5432,
     };
