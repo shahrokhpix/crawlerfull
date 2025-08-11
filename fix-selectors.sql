@@ -1,6 +1,6 @@
 -- Fix FarsNews selectors
 UPDATE news_sources SET 
-    list_selector = 'a[href*="/news/"], a.title, .title a, .story-title a',
+    list_selector = 'a[class*="text-title1-b"], a[class*="prosed"], a[href*="farsnews.ir"]',
     title_selector = 'h1, .title, .story-title, .story-head h1',
     content_selector = '.story, .content, .news-content, p'
 WHERE name = 'فارس‌نیوز';

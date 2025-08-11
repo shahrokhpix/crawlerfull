@@ -511,7 +511,7 @@ app.get("/api/farsnews", async (req, res) => {
     let sourceId = 1; // Default to Farsnews
     
     try {
-      const db = database.db;
+      const db = database.getDb();
       const sourceResult = await db.query(
         "SELECT id FROM news_sources WHERE name = 'فارس‌نیوز' AND active = true LIMIT 1"
       );
