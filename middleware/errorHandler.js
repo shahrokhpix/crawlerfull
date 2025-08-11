@@ -17,19 +17,15 @@ const globalErrorHandler = (error, req, res, next) => {
     // Prevent error details from being sent to client in production
     const isDevelopment = process.env.NODE_ENV === 'development';
     
-    if (isDevelopment) {
-      res.status(500).json({
-        success: false,
-        message: 'Internal Server Error',
-        error: error.message,
-        stack: error.stack
-      });
-    } else {
-      res.status(500).json({
-        success: false,
-        message: 'Internal Server Error'
-      });
-    }
+    // Temporarily show errors in production for debugging
+    res.status(500).json({
+      success: false,
+      message: 'Internal Server Error',
+      error: error.message,
+      stack: isDevelopment ? error.stack : undefined,
+      url: req.url,
+      method: req.method
+    });
   } catch (handlerError) {
     // If error handler itself fails, send basic error
     console.error('Error handler failed:', handlerError);
