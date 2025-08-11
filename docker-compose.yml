@@ -7,6 +7,7 @@ services:
       POSTGRES_DB: crawler_db
       POSTGRES_USER: crawler_user
       POSTGRES_PASSWORD: ${DB_PASSWORD:-your_secure_password}
+      POSTGRES_INITDB_ARGS: "--auth-host=scram-sha-256 --auth-local=scram-sha-256"
     volumes:
       - postgres_data:/var/lib/postgresql/data
       - ./scripts/init-postgres.sql:/docker-entrypoint-initdb.d/init.sql
@@ -66,6 +67,7 @@ services:
       - PUPPETEER_EXECUTABLE_PATH=/usr/bin/chromium-browser
     ports:
       - "3005:3004"
+      - "3004:3004"
     volumes:
       - ./logs:/app/logs
       - ./data:/app/data

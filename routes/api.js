@@ -1626,7 +1626,7 @@ router.get('/logs/stats', auth.verifyToken, async (req, res) => {
     const { source_id, date_from, date_to } = req.query;
     
     let whereClause = 'WHERE 1=1';
-    const params = [];
+  const params = [];
     let paramIndex = 1;
     
     if (source_id) {
@@ -2913,5 +2913,4 @@ router.get('/health', async (req, res) => {
   }
 });
 
-module.exports = router;
 module.exports = router;

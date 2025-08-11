@@ -252,6 +252,11 @@ app.get('/api/health', (req, res) => {
   res.status(200).json({ status: 'ok', uptime: process.uptime() });
 });
 
+// Root route - redirect to admin
+app.get('/', (req, res) => {
+  res.redirect('/admin');
+});
+
 app.use(cookieParser());
 
 // API Routes - New system
