@@ -1015,25 +1015,12 @@ class UniversalCrawler {
         throw new Error(`منبع خبری با شناسه ${sourceId} یافت نشد`);
       }
 
-      // پاکسازی و اعتبارسنجی selectors
-      const originalSelectors = {
+      // پاکسازی و اعتبارسنجی selectors - موقتاً غیرفعال
+      logger.info('Selectors از دیتابیس:', {
         list_selector: source.list_selector,
         title_selector: source.title_selector,
         content_selector: source.content_selector,
         link_selector: source.link_selector
-      };
-      
-      const sanitizedSelectors = this.sanitizeSelectors(originalSelectors);
-      
-      // بروزرسانی source با selectors پاک شده
-      source.list_selector = sanitizedSelectors.list_selector || source.list_selector;
-      source.title_selector = sanitizedSelectors.title_selector || source.title_selector;
-      source.content_selector = sanitizedSelectors.content_selector || source.content_selector;
-      source.link_selector = sanitizedSelectors.link_selector || source.link_selector;
-      
-      logger.info('Selectors پاکسازی شدند:', {
-        original: originalSelectors,
-        sanitized: sanitizedSelectors
       });
       
       logger.info(`شروع کرال منبع: ${source.name}`);
