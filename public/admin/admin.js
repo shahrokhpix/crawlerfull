@@ -18,6 +18,21 @@ let logsFilters = {
     sortOrder: 'desc'
 };
 
+// Selector counters for dynamic fields
+let selectorCounters = {
+    title: 0,
+    content: 0,
+    lead: 0,
+    router: 0
+};
+
+let editSelectorCounters = {
+    title: 0,
+    content: 0,
+    lead: 0,
+    router: 0
+};
+
 // Loading functions
 function showLoading() {
     const loadingElement = document.getElementById('loading');
@@ -631,6 +646,9 @@ async function loadSources() {
             <tr>
                 <td>${source.name}</td>
                 <td><a href="${source.base_url}" target="_blank">${source.base_url}</a></td>
+                <td><code class="text-primary">${source.list_selector || '-'}</code></td>
+                <td><code class="text-success">${source.title_selector || '-'}</code></td>
+                <td><code class="text-info">${source.content_selector || '-'}</code></td>
                 <td>
                     <span class="badge ${source.driver_type === 'selenium' ? 'bg-info' : source.driver_type === 'playwright' ? 'bg-success' : source.driver_type === 'cheerio' ? 'bg-warning' : 'bg-primary'}">
                         ${source.driver_type === 'selenium' ? 'Selenium' : source.driver_type === 'playwright' ? 'Playwright' : source.driver_type === 'cheerio' ? 'Cheerio' : 'Puppeteer'}
@@ -661,7 +679,7 @@ async function loadSources() {
     } catch (error) {
         console.error('Error loading sources:', error);
         document.getElementById('sourcesTable').innerHTML = 
-            '<tr><td colspan="5" class="text-center text-danger">خطا در بارگذاری منابع</td></tr>';
+            '<tr><td colspan="8" class="text-center text-danger">خطا در بارگذاری منابع</td></tr>';
     }
 }
 
@@ -3190,21 +3208,6 @@ function stopWebDriverAutoRefresh() {
 }
 
 // ==================== MULTIPLE SELECTOR MANAGEMENT ====================
-
-// متغیرهای سراسری برای مدیریت سلکتورهای چندگانه
-let selectorCounters = {
-    title: 0,
-    content: 0,
-    lead: 0,
-    router: 0
-};
-
-let editSelectorCounters = {
-    title: 0,
-    content: 0,
-    lead: 0,
-    router: 0
-};
 
 // اضافه کردن فیلد سلکتور جدید در فرم اضافه کردن
 function addSelectorField(type) {

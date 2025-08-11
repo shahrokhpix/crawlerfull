@@ -606,6 +606,9 @@
                                             <tr>
                                                 <th>نام</th>
                                                 <th>URL پایه</th>
+                                                <th>List Selector</th>
+                                                <th>Title Selector</th>
+                                                <th>Content Selector</th>
                                                 <th>نوع درایور</th>
                                                 <th>وضعیت</th>
                                                 <th>تاریخ ایجاد</th>
@@ -614,7 +617,7 @@
                                         </thead>
                                         <tbody id="sourcesTable">
                                             <tr>
-                                                <td colspan="6" class="text-center">در حال بارگذاری...</td>
+                                                <td colspan="9" class="text-center">در حال بارگذاری...</td>
                                             </tr>
                                         </tbody>
                                     </table>
@@ -1663,7 +1666,12 @@
                         <div class="mb-3">
                             <label class="form-label">سلکتور لیست اخبار</label>
                             <input type="text" class="form-control" id="listSelector" placeholder="a[href*='/news/']">
-                            <div class="form-text">سلکتور CSS برای یافتن لینک‌های اخبار</div>
+                            <div class="form-text">
+                                سلکتور CSS برای یافتن لینک‌های اخبار
+                                <button type="button" class="btn btn-sm btn-outline-info ms-2" onclick="showSelectorHelp()">
+                                    <i class="fas fa-question-circle"></i> راهنمای سلکتور
+                                </button>
+                            </div>
                         </div>
                         <!-- سلکتورهای اصلی -->
                         <div class="row">
@@ -1732,7 +1740,12 @@
                                 <option value="playwright">Playwright (مدرن و قدرتمند)</option>
                                 <option value="cheerio">Cheerio (سبک و سریع)</option>
                             </select>
-                            <div class="form-text">Puppeteer/Playwright برای سایت‌های پیچیده، Selenium برای پایداری بالا، Cheerio برای سایت‌های ساده</div>
+                            <div class="form-text">
+                                <strong>Puppeteer:</strong> سریع‌تر، مناسب برای سایت‌های پیچیده<br>
+                                <strong>Selenium:</strong> پایدارتر، مناسب برای سایت‌های قدیمی<br>
+                                <strong>Playwright:</strong> مدرن و قدرتمند، بهترین عملکرد<br>
+                                <strong>Cheerio:</strong> سبک و سریع، مناسب برای سایت‌های ساده
+                            </div>
                         </div>
                     </form>
                 </div>
@@ -1841,7 +1854,12 @@
                                 <option value="playwright">Playwright (مدرن و قدرتمند)</option>
                                 <option value="cheerio">Cheerio (سبک و سریع)</option>
                             </select>
-                            <div class="form-text">Puppeteer/Playwright برای سایت‌های پیچیده، Selenium برای پایداری بالا، Cheerio برای سایت‌های ساده</div>
+                            <div class="form-text">
+                                <strong>Puppeteer:</strong> سریع‌تر، مناسب برای سایت‌های پیچیده<br>
+                                <strong>Selenium:</strong> پایدارتر، مناسب برای سایت‌های قدیمی<br>
+                                <strong>Playwright:</strong> مدرن و قدرتمند، بهترین عملکرد<br>
+                                <strong>Cheerio:</strong> سبک و سریع، مناسب برای سایت‌های ساده
+                            </div>
                         </div>
                         <div class="mb-3">
                             <div class="form-check">

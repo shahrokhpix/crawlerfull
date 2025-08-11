@@ -696,18 +696,34 @@ class UniversalCrawler {
       let title = '';
       
       // استفاده از سلکتورهای چندگانه برای عنوان
-      const titleSelectors = selectors.title_selectors && selectors.title_selectors.length > 0 
-        ? selectors.title_selectors 
-        : (selectors.title_selector ? [selectors.title_selector] : []);
+      let titleSelectors = [];
+      
+      // بررسی سلکتورهای چندگانه
+      if (selectors.title_selectors) {
+        if (Array.isArray(selectors.title_selectors)) {
+          titleSelectors = selectors.title_selectors;
+        } else if (typeof selectors.title_selectors === 'string') {
+          try {
+            titleSelectors = JSON.parse(selectors.title_selectors);
+          } catch (e) {
+            titleSelectors = [selectors.title_selectors];
+          }
+        }
+      }
+      
+      // اگر سلکتورهای چندگانه خالی بودند، از سلکتور اصلی استفاده کن
+      if (titleSelectors.length === 0 && selectors.title_selector) {
+        titleSelectors = [selectors.title_selector];
+      }
       
       // لاگ کردن سلکتورهای عنوان
-      logger.info(`استفاده از ${titleSelectors.length} سلکتور عنوان برای ${url}`);
+      logger.info(`استفاده از ${titleSelectors.length} سلکتور عنوان برای ${url}:`, titleSelectors);
       
       if (titleSelectors.length > 0) {
         if (this.webDriverManager.driverType === 'cheerio') {
           // برای Cheerio از executeCheerioScript استفاده می‌کنیم
           for (const titleSelector of titleSelectors) {
-            if (!titleSelector) continue;
+            if (!titleSelector || titleSelector.trim() === '') continue;
             
             const scriptStr = `
               let title = '';
@@ -745,7 +761,7 @@ class UniversalCrawler {
         } else {
           // برای سایر درایورها از safeEvaluate استفاده می‌کنیم
           for (const titleSelector of titleSelectors) {
-            if (!titleSelector) continue;
+            if (!titleSelector || titleSelector.trim() === '') continue;
             
             title = await this.safeEvaluate(page, (selector) => {
               console.log('جستجوی سلکتور عنوان:', selector);
@@ -796,18 +812,34 @@ class UniversalCrawler {
       let content = '';
       
       // استفاده از سلکتورهای چندگانه برای محتوا
-      const contentSelectors = selectors.content_selectors && selectors.content_selectors.length > 0 
-        ? selectors.content_selectors 
-        : (selectors.content_selector ? [selectors.content_selector] : []);
+      let contentSelectors = [];
+      
+      // بررسی سلکتورهای چندگانه
+      if (selectors.content_selectors) {
+        if (Array.isArray(selectors.content_selectors)) {
+          contentSelectors = selectors.content_selectors;
+        } else if (typeof selectors.content_selectors === 'string') {
+          try {
+            contentSelectors = JSON.parse(selectors.content_selectors);
+          } catch (e) {
+            contentSelectors = [selectors.content_selectors];
+          }
+        }
+      }
+      
+      // اگر سلکتورهای چندگانه خالی بودند، از سلکتور اصلی استفاده کن
+      if (contentSelectors.length === 0 && selectors.content_selector) {
+        contentSelectors = [selectors.content_selector];
+      }
       
       // لاگ کردن سلکتورهای محتوا
-      logger.info(`استفاده از ${contentSelectors.length} سلکتور محتوا برای ${url}`);
+      logger.info(`استفاده از ${contentSelectors.length} سلکتور محتوا برای ${url}:`, contentSelectors);
       
       if (contentSelectors.length > 0) {
         if (this.webDriverManager.driverType === 'cheerio') {
           // برای Cheerio از executeCheerioScript استفاده می‌کنیم
           for (const contentSelector of contentSelectors) {
-            if (!contentSelector) continue;
+            if (!contentSelector || contentSelector.trim() === '') continue;
             
             const scriptStr = `
               let content = '';
@@ -828,7 +860,7 @@ class UniversalCrawler {
         } else {
           // برای سایر درایورها از safeEvaluate استفاده می‌کنیم
           for (const contentSelector of contentSelectors) {
-            if (!contentSelector) continue;
+            if (!contentSelector || contentSelector.trim() === '') continue;
             
             content = await this.safeEvaluate(page, (selector) => {
               console.log('جستجوی سلکتور محتوا:', selector);
@@ -1173,12 +1205,25 @@ class UniversalCrawler {
             
             // اطمینان از اینکه سلکتورها از دیتابیس استفاده می‌شوند
             const selectors = {
-              title_selector: source.title_selector,
-              content_selector: source.content_selector,
-              link_selector: source.link_selector,
-              title_selectors: source.title_selectors,
-              content_selectors: source.content_selectors
+              title_selector: source.title_selector || '',
+              content_selector: source.content_selector || '',
+              link_selector: source.link_selector || '',
+              title_selectors: source.title_selectors || [],
+              content_selectors: source.content_selectors || [],
+              lead_selector: source.lead_selector || '',
+              router_selector: source.router_selector || '',
+              lead_selectors: source.lead_selectors || [],
+              router_selectors: source.router_selectors || []
             };
+            
+            // لاگ کردن سلکتورهای استفاده شده
+            logger.info('سلکتورهای استفاده شده برای کرال:', {
+              title_selector: selectors.title_selector,
+              content_selector: selectors.content_selector,
+              link_selector: selectors.link_selector,
+              title_selectors: selectors.title_selectors,
+              content_selectors: selectors.content_selectors
+            });
             
             articleData = await this.extractArticleContent(page, link, selectors, {
               waitTime: waitTime,
@@ -1207,11 +1252,15 @@ class UniversalCrawler {
           if (followLinks && crawlDepth > 0 && articleData.internalLinks.length > 0) {
             // استفاده از همان متغیر selectors که قبلاً تعریف شده
             const selectors = {
-              title_selector: source.title_selector,
-              content_selector: source.content_selector,
-              link_selector: source.link_selector,
-              title_selectors: source.title_selectors,
-              content_selectors: source.content_selectors
+              title_selector: source.title_selector || '',
+              content_selector: source.content_selector || '',
+              link_selector: source.link_selector || '',
+              title_selectors: source.title_selectors || [],
+              content_selectors: source.content_selectors || [],
+              lead_selector: source.lead_selector || '',
+              router_selector: source.router_selector || '',
+              lead_selectors: source.lead_selectors || [],
+              router_selectors: source.router_selectors || []
             };
             
             logger.info(`شروع کرال عمیق با سلکتورها:`, {
