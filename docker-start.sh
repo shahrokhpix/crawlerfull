@@ -61,7 +61,7 @@ case "$MODE" in
     docker-compose up -d
     ;;
   *) echo "Unknown mode"; exit 1 ;;
-fi
+esac
 
 echo "Waiting for services..."; sleep 10
 
