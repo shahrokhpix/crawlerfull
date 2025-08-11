@@ -164,6 +164,24 @@ class WebDriverManager {
         
         const browser = await this.init();
         const page = await browser.newPage();
+        
+        // Configure page settings to prevent detached frame errors
+        await page.setDefaultTimeout(30000);
+        await page.setDefaultNavigationTimeout(30000);
+        
+        // Set page lifecycle event listeners
+        page.on('close', () => {
+          this.pages.delete(page);
+        });
+        
+        page.on('error', (error) => {
+          logger.warn('Page error occurred:', error.message);
+        });
+        
+        page.on('pageerror', (error) => {
+          logger.warn('Page JavaScript error:', error.message);
+        });
+        
         this.pages.add(page);
         
         // Setup Persian language

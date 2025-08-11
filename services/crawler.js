@@ -146,38 +146,85 @@ class UniversalCrawler {
 
   // تابع کمکی برای evaluate که با همه درایورها کار می‌کند
   async safeEvaluate(page, script, ...args) {
-    try {
-      if (this.webDriverManager.driverType === 'puppeteer') {
-        return await page.evaluate(script, ...args);
-      } else if (this.webDriverManager.driverType === 'playwright') {
-        // Playwright has different evaluate API
-        if (args.length === 0) {
-          return await page.evaluate(script);
-        } else if (args.length === 1) {
-          return await page.evaluate(script, args[0]);
-        } else {
-          // For multiple arguments, pass as object
-          const argsObj = {};
-          args.forEach((arg, index) => {
-            argsObj[`arg${index}`] = arg;
-          });
-          return await page.evaluate((argsObj, script) => {
-            const args = Object.values(argsObj);
-            return script(...args);
-          }, argsObj, script);
+    const maxRetries = 3;
+    let lastError = null;
+
+    for (let attempt = 1; attempt <= maxRetries; attempt++) {
+      try {
+        // Check if page is still valid before evaluate
+        if (this.webDriverManager.driverType === 'puppeteer') {
+          // Check if page is closed or detached
+          if (page.isClosed && page.isClosed()) {
+            logger.warn('صفحه puppeteer بسته شده است');
+            return null;
+          }
+          
+          // Check if main frame is available
+          if (!page.mainFrame()) {
+            logger.warn('Main frame در دسترس نیست');
+            return null;
+          }
+
+          return await page.evaluate(script, ...args);
+        } else if (this.webDriverManager.driverType === 'playwright') {
+          // Check if page is closed
+          if (page.isClosed()) {
+            logger.warn('صفحه playwright بسته شده است');
+            return null;
+          }
+
+          // Playwright has different evaluate API
+          if (args.length === 0) {
+            return await page.evaluate(script);
+          } else if (args.length === 1) {
+            return await page.evaluate(script, args[0]);
+          } else {
+            // For multiple arguments, pass as object
+            const argsObj = {};
+            args.forEach((arg, index) => {
+              argsObj[`arg${index}`] = arg;
+            });
+            return await page.evaluate((argsObj, script) => {
+              const args = Object.values(argsObj);
+              return script(...args);
+            }, argsObj, script);
+          }
+        } else if (this.webDriverManager.driverType === 'selenium') {
+          // برای selenium از executeScript استفاده می‌کنیم
+          const scriptString = `return (${script.toString()})(${args.map(arg => JSON.stringify(arg)).join(', ')})`;
+          return await page.executeScript(scriptString);
+        } else if (this.webDriverManager.driverType === 'cheerio') {
+          // برای cheerio از $ استفاده می‌کنیم
+          return this.executeCheerioScript(page, script, ...args);
         }
-      } else if (this.webDriverManager.driverType === 'selenium') {
-        // برای selenium از executeScript استفاده می‌کنیم
-        const scriptString = `return (${script.toString()})(${args.map(arg => JSON.stringify(arg)).join(', ')})`;
-        return await page.executeScript(scriptString);
-      } else if (this.webDriverManager.driverType === 'cheerio') {
-        // برای cheerio از $ استفاده می‌کنیم
-        return this.executeCheerioScript(page, script, ...args);
+      } catch (error) {
+        lastError = error;
+        
+        // Check if it's a detached frame error
+        if (error.message.includes('detached Frame') || 
+            error.message.includes('Target closed') ||
+            error.message.includes('Session closed')) {
+          
+          logger.warn(`تلاش ${attempt}/${maxRetries}: Frame detached error - تلاش مجدد...`);
+          
+          // Wait before retry
+          if (attempt < maxRetries) {
+            await new Promise(resolve => setTimeout(resolve, 1000 * attempt));
+            continue;
+          }
+        }
+        
+        // For other errors, log and return null immediately
+        logger.warn(`خطا در evaluate برای ${this.webDriverManager.driverType} (تلاش ${attempt}):`, error.message);
+        
+        if (attempt === maxRetries) {
+          break;
+        }
       }
-    } catch (error) {
-      logger.warn(`خطا در evaluate برای ${this.webDriverManager.driverType}:`, error.message);
-      return null;
     }
+
+    logger.error(`تمام تلاش‌ها برای evaluate ناموفق - آخرین خطا:`, lastError?.message);
+    return null;
   }
 
   // Execute script for Cheerio
