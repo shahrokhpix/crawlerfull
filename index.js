@@ -220,6 +220,7 @@ logger.info('New database system initialized successfully');
 
 // Middleware
 app.use(express.json());
+app.use(cookieParser());
 
 // Set proper MIME types for static files
 app.use(express.static('public', {
@@ -242,6 +243,11 @@ app.use('/admin', express.static(path.join(__dirname, 'public', 'admin'), {
   }
 }));
 
+// Root route - redirect to admin
+app.get('/', (req, res) => {
+  res.redirect('/admin');
+});
+
 // Ensure /admin returns index.html (without trailing slash)
 app.get('/admin', (req, res) => {
   res.sendFile(path.join(__dirname, 'public', 'admin', 'index.html'));
@@ -252,13 +258,6 @@ app.get('/api/health', (req, res) => {
   res.status(200).json({ status: 'ok', uptime: process.uptime() });
 });
 
-// Root route - redirect to admin
-app.get('/', (req, res) => {
-  res.redirect('/admin');
-});
-
-app.use(cookieParser());
-
 // API Routes - New system
 // Block invalid CDN requests
 app.use('/cdn-cgi', (req, res) => {
@@ -266,10 +265,11 @@ app.use('/cdn-cgi', (req, res) => {
 });
 
 app.use('/api', apiRoutes);
+
 // Setup process error handlers
 setupProcessErrorHandlers();
 
-// Error handling middleware
+// Error handling middleware (must be last)
 app.use(globalErrorHandler);
 
 // Performance alerts will be setup after monitor initialization
@@ -279,15 +279,7 @@ app.use(globalErrorHandler);
 // Load and start cron jobs
 scheduler.loadSchedules();
 
-// Main page route
-app.get('/', (req, res) => {
-  res.sendFile(path.join(__dirname, 'public', 'index.html'));
-});
-
-// Admin panel route
-app.get('/admin', (req, res) => {
-  res.sendFile(path.join(__dirname, 'public', 'admin', 'index.html'));
-});
+// Routes already defined above
 
 // Helper function to generate hash for article
 function generateHash(title, link) {
@@ -866,8 +858,8 @@ app.listen(PORT, async () => {
   
   // راه‌اندازی WebSocket server برای Selector Builder
   try {
-    const selectorBuilderWS = new SelectorBuilderWebSocket(3005);
-    console.log(`🔌 Selector Builder WebSocket server started on port 3005`);
+    const selectorBuilderWS = new SelectorBuilderWebSocket(3006);
+    console.log(`🔌 Selector Builder WebSocket server started on port 3006`);
   } catch (error) {
     console.error('خطا در راه‌اندازی WebSocket server:', error);
   }
@@ -876,7 +868,7 @@ app.listen(PORT, async () => {
   try {
     const WebSocket = require('ws');
     const logsWSS = new WebSocket.Server({ 
-      port: 3006,
+      port: 3007,
       path: '/ws/logs'
     });
 
