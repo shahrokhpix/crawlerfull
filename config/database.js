@@ -7,7 +7,7 @@ class Database {
       user: process.env.DB_USER || 'crawler_user',
       host: process.env.DB_HOST || 'postgres',
       database: process.env.DB_NAME || 'crawler_db',
-      password: process.env.DB_PASSWORD || 'your_secure_password',
+      password: process.env.DB_PASSWORD || 'crawler_password_2024',
       port: parseInt(process.env.DB_PORT) || 5432,
       max: 20,
       idleTimeoutMillis: 30000,

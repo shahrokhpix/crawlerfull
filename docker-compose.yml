@@ -6,7 +6,7 @@ services:
     environment:
       POSTGRES_DB: crawler_db
       POSTGRES_USER: crawler_user
-      POSTGRES_PASSWORD: ${DB_PASSWORD:-your_secure_password}
+      POSTGRES_PASSWORD: ${DB_PASSWORD:-crawler_password_2024}
       POSTGRES_INITDB_ARGS: "--auth-host=scram-sha-256 --auth-local=scram-sha-256"
     volumes:
       - postgres_data:/var/lib/postgresql/data
@@ -56,7 +56,7 @@ services:
       - DB_PORT=5432
       - DB_NAME=crawler_db
       - DB_USER=crawler_user
-      - DB_PASSWORD=${DB_PASSWORD:-your_secure_password}
+      - DB_PASSWORD=${DB_PASSWORD:-crawler_password_2024}
       - REDIS_HOST=redis
       - REDIS_PORT=6379
       - PORT=3004
