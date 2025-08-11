@@ -1,96 +1,101 @@
 @echo off
-echo 🐳 راه‌اندازی کرالر خبری با Docker
+echo 🐳 Starting News Crawler with Docker
 echo ========================================
 
-REM بررسی وجود Docker
+REM Check if Docker is installed
 docker --version >nul 2>&1
 if errorlevel 1 (
-    echo ❌ Docker یافت نشد. لطفاً Docker Desktop را نصب کنید.
+    echo ❌ Docker not found. Please install Docker Desktop.
     pause
     exit /b 1
 )
 
-REM بررسی وجود Docker Compose
+REM Check if Docker Compose is installed
 docker-compose --version >nul 2>&1
 if errorlevel 1 (
-    echo ❌ Docker Compose یافت نشد. لطفاً Docker Compose را نصب کنید.
+    echo ❌ Docker Compose not found. Please install Docker Compose.
     pause
     exit /b 1
 )
 
-echo ✅ Docker و Docker Compose آماده هستند
+echo ✅ Docker and Docker Compose are ready
 echo.
 
-REM بررسی وجود فایل .env
+REM Check if .env file exists
 if not exist ".env" (
-    echo ⚠️ فایل .env یافت نشد. فایل .env.example کپی می‌شود...
+    echo ⚠️ .env file not found. Copying from .env.example...
     copy .env.example .env
-    echo ✅ فایل .env ایجاد شد. لطفاً تنظیمات را بررسی کنید.
+    echo ✅ .env file created. Please check the settings.
     echo.
 )
 
-echo انتخاب نوع اجرا:
-echo 1. اجرای کامل (پیشنهادی)
-echo 2. اجرا بدون Nginx
-echo 3. اجرا با PM2
-echo 4. اجرا در حالت توسعه
-echo 5. اجرا بدون Puppeteer (برای سرورهای مشکل‌دار)
-echo 6. اجرا با Dockerfile جایگزین
-echo 7. پاک کردن و اجرای مجدد
+echo Select execution type:
+echo 1. Full execution (Recommended)
+echo 2. Execute without Nginx
+echo 3. Execute with PM2
+echo 4. Execute in development mode
+echo 5. Execute without Puppeteer (for problematic servers)
+echo 6. Execute with alternative Dockerfile
+echo 7. Execute with Iranian mirrors (Recommended for Iran)
+echo 8. Clean and restart
 echo.
 
-set /p choice="لطفاً نوع اجرا را انتخاب کنید (1-7): "
+set /p choice="Please select execution type (1-8): "
 
 if "%choice%"=="1" (
-    echo 🚀 اجرای کامل پروژه...
+    echo 🚀 Starting full project...
     docker-compose up -d
 ) else if "%choice%"=="2" (
-    echo 🚀 اجرا بدون Nginx...
+    echo 🚀 Execute without Nginx...
     docker-compose up -d postgres redis crawler
 ) else if "%choice%"=="3" (
-    echo 🚀 اجرا با PM2...
+    echo 🚀 Execute with PM2...
     docker-compose --profile pm2 up -d
 ) else if "%choice%"=="4" (
-    echo 🚀 اجرا در حالت توسعه...
+    echo 🚀 Execute in development mode...
     docker-compose -f docker-compose.yml -f docker-compose.dev.yml up -d
 ) else if "%choice%"=="5" (
-    echo 🚀 اجرا بدون Puppeteer...
+    echo 🚀 Execute without Puppeteer...
     docker-compose -f docker-compose.yml build --build-arg DOCKERFILE=Dockerfile.no-puppeteer
     docker-compose up -d postgres redis crawler
 ) else if "%choice%"=="6" (
-    echo 🚀 اجرا با Dockerfile جایگزین...
+    echo 🚀 Execute with alternative Dockerfile...
     docker-compose -f docker-compose.yml build --build-arg DOCKERFILE=Dockerfile.alpine
     docker-compose up -d
 ) else if "%choice%"=="7" (
-    echo 🧹 پاک کردن و اجرای مجدد...
+    echo 🚀 Execute with Iranian mirrors...
+    docker-compose -f docker-compose.yml build --build-arg DOCKERFILE=Dockerfile.iran
+    docker-compose up -d
+) else if "%choice%"=="8" (
+    echo 🧹 Clean and restart...
     docker-compose down -v
     docker-compose build --no-cache
     docker-compose up -d
 ) else (
-    echo ❌ انتخاب نامعتبر
+    echo ❌ Invalid selection
     pause
     exit /b 1
 )
 
 echo.
-echo ⏳ منتظر راه‌اندازی سرویس‌ها...
+echo ⏳ Waiting for services to start...
 timeout /t 10 /nobreak >nul
 
 echo.
-echo 📊 وضعیت کانتینرها:
+echo 📊 Container status:
 docker-compose ps
 
 echo.
-echo 🌐 دسترسی به سرویس‌ها:
-echo    پنل ادمین: http://localhost:3004/admin
+echo 🌐 Service access:
+echo    Admin Panel: http://localhost:3004/admin
 echo    API: http://localhost:3004/api
 echo    RSS Feed: http://localhost:3004/rss
 echo.
 
-echo دستورات مفید:
-echo   مشاهده لاگ‌ها: docker-compose logs -f
-echo   توقف: docker-compose down
-echo   راه‌اندازی مجدد: docker-compose restart
+echo Useful commands:
+echo   View logs: docker-compose logs -f
+echo   Stop: docker-compose down
+echo   Restart: docker-compose restart
 echo.
 
 pause 

@@ -1,7 +1,7 @@
-# استفاده از Node.js 18 Alpine برای حجم کمتر
+# Use Node.js 18 Alpine for smaller size
 FROM node:18-alpine
 
-# نصب وابستگی‌های سیستم مورد نیاز
+# Install system dependencies
 RUN apk add --no-cache \
     chromium \
     nss \
@@ -15,7 +15,7 @@ RUN apk add --no-cache \
     git \
     && rm -rf /var/cache/apk/*
 
-# تنظیم متغیرهای محیطی برای Puppeteer
+# Set environment variables for Puppeteer
 ENV PUPPETEER_SKIP_CHROMIUM_DOWNLOAD=true \
     PUPPETEER_EXECUTABLE_PATH=/usr/bin/chromium-browser \
     PUPPETEER_SKIP_DOWNLOAD=true \
@@ -24,31 +24,31 @@ ENV PUPPETEER_SKIP_CHROMIUM_DOWNLOAD=true \
     CHROME_BIN=/usr/bin/chromium-browser \
     CHROME_PATH=/usr/bin/chromium-browser
 
-# ایجاد دایرکتوری کار
+# Create working directory
 WORKDIR /app
 
-# کپی package.json و package-lock.json
+# Copy package files
 COPY package*.json .npmrc ./
 
-# نصب وابستگی‌ها با تنظیمات خاص برای Puppeteer
+# Install dependencies with Puppeteer settings
 RUN npm ci --only=production --ignore-scripts --no-optional && npm cache clean --force
 
-# کپی کدهای برنامه
+# Copy application code
 COPY . .
 
-# ایجاد دایرکتوری‌های مورد نیاز
+# Create required directories
 RUN mkdir -p logs data config public && \
     chown -R node:node /app
 
-# تغییر به کاربر node برای امنیت
+# Switch to node user for security
 USER node
 
-# پورت
+# Expose port
 EXPOSE 3004
 
 # Health check
 HEALTHCHECK --interval=30s --timeout=10s --start-period=40s --retries=3 \
     CMD curl -f http://localhost:3004/api/health || exit 1
 
-# دستور اجرا
+# Start command
 CMD ["npm", "start"] 

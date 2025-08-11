@@ -92,7 +92,7 @@ services:
           memory: 512M
           cpus: '0.5'
 
-  # Nginx Reverse Proxy (اختیاری)
+  # Nginx Reverse Proxy (Optional)
   nginx:
     image: nginx:alpine
     container_name: crawler_nginx
@@ -111,7 +111,7 @@ services:
     profiles:
       - nginx
 
-  # PM2 Process Manager (اختیاری)
+  # PM2 Process Manager (Optional)
   pm2:
     build: 
       context: .
