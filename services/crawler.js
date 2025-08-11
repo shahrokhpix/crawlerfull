@@ -41,6 +41,58 @@ class UniversalCrawler {
     // Cache manager setup
     this.setupCacheManager();
   }
+
+  // تابع اعتبارسنجی و پاکسازی selector
+  sanitizeSelector(selector) {
+    if (!selector || typeof selector !== 'string') {
+      return '';
+    }
+    
+    // حذف کاراکترهای نامعتبر و اضافی
+    let cleaned = selector.trim()
+      .replace(/\s+/g, ' ') // حذف فاصله‌های اضافی
+      .replace(/\.\s+/g, '.') // حذف فاصله بعد از نقطه
+      .replace(/\s+\./g, '.') // حذف فاصله قبل از نقطه
+      .replace(/\.+/g, '.') // حذف نقطه‌های اضافی
+      .replace(/,\s*,/g, ',') // حذف کاما های اضافی
+      .replace(/,\s*$/g, '') // حذف کاما در انتها
+      .replace(/^\s*,/g, ''); // حذف کاما در ابتدا
+    
+    // اگر selector خالی شد، بازگرداندن string خالی
+    if (!cleaned) {
+      return '';
+    }
+    
+    // تست اعتبار selector با try-catch ساده
+    try {
+      // تست با regex برای شناسایی selector های نامعتبر
+      if (cleaned.includes('..') || cleaned.includes(' .') || cleaned.includes('. ')) {
+        throw new Error('Invalid selector format');
+      }
+      return cleaned;
+    } catch (error) {
+      logger.warn(`Selector نامعتبر حذف شد: ${selector} - خطا: ${error.message}`);
+      return '';
+    }
+  }
+
+  // تابع پاکسازی تمام selectors
+  sanitizeSelectors(selectors) {
+    const sanitized = {};
+    
+    Object.keys(selectors).forEach(key => {
+      if (typeof selectors[key] === 'string') {
+        const cleaned = this.sanitizeSelector(selectors[key]);
+        if (cleaned) {
+          sanitized[key] = cleaned;
+        }
+      } else {
+        sanitized[key] = selectors[key];
+      }
+    });
+    
+    return sanitized;
+  }
   
   // تنظیم rate limiter
   setupRateLimiter() {
@@ -915,6 +967,27 @@ class UniversalCrawler {
       if (!source) {
         throw new Error(`منبع خبری با شناسه ${sourceId} یافت نشد`);
       }
+
+      // پاکسازی و اعتبارسنجی selectors
+      const originalSelectors = {
+        list_selector: source.list_selector,
+        title_selector: source.title_selector,
+        content_selector: source.content_selector,
+        link_selector: source.link_selector
+      };
+      
+      const sanitizedSelectors = this.sanitizeSelectors(originalSelectors);
+      
+      // بروزرسانی source با selectors پاک شده
+      source.list_selector = sanitizedSelectors.list_selector || source.list_selector;
+      source.title_selector = sanitizedSelectors.title_selector || source.title_selector;
+      source.content_selector = sanitizedSelectors.content_selector || source.content_selector;
+      source.link_selector = sanitizedSelectors.link_selector || source.link_selector;
+      
+      logger.info('Selectors پاکسازی شدند:', {
+        original: originalSelectors,
+        sanitized: sanitizedSelectors
+      });
       
       logger.info(`شروع کرال منبع: ${source.name}`);
       
