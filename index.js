@@ -861,7 +861,7 @@ app.listen(PORT, async () => {
   try {
     const WebSocket = require('ws');
     const logsWSS = new WebSocket.Server({ 
-      server: server,
+      port: 3006,
       path: '/ws/logs'
     });
 
