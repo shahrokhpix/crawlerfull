@@ -491,168 +491,69 @@ app.get("/api/farsnews", async (req, res) => {
   try {
     const crawlWithContent = req.query.full === 'true';
     const maxArticles = parseInt(req.query.limit) || 10;
-    const crawlDepth = parseInt(req.query.depth) || 0; // New parameter for crawl depth
+    const crawlDepth = parseInt(req.query.depth) || 0;
     
-    const browser = await puppeteer.launch({
-      headless: "new",
-      executablePath: "C:\\Program Files\\Google\\Chrome\\Application\\chrome.exe",
-      args: [
-        "--no-sandbox", 
-        "--disable-setuid-sandbox", 
-        "--disable-web-security", 
-        "--disable-features=VizDisplayCompositor",
-        "--lang=fa-IR",
-        "--accept-lang=fa-IR,fa,en-US,en",
-        "--force-device-scale-factor=1"
-      ]
-    });
-
-    const page = await browser.newPage();
+    logger.info(`Legacy farsnews API called with limit=${maxArticles}, full=${crawlWithContent}, depth=${crawlDepth}`);
     
-    // تنظیم زبان فارسی برای صفحه
-    await page.setExtraHTTPHeaders({
-      'Accept-Language': 'fa-IR,fa;q=0.9,en-US;q=0.8,en;q=0.7'
-    });
+    // Use UniversalCrawler instead of direct puppeteer
+    const crawler = new UniversalCrawler('puppeteer');
     
-    await page.setUserAgent('Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/91.0.4472.124 Safari/537.36');
+    const options = {
+      limit: maxArticles,
+      crawlDepth: crawlDepth,
+      fullContent: crawlWithContent,
+      waitTime: 3000,
+      timeout: crawlDepth > 0 ? 180000 : 60000,
+      followLinks: crawlDepth > 0
+    };
     
-    console.log('Navigating to farsnews showcase...');
-    await page.goto("https://www.farsnews.ir/showcase", { 
-      waitUntil: "networkidle0",
-      timeout: crawlDepth > 0 ? 180000 : 60000 // Increase timeout for deep crawling
-    });
+    // Get Farsnews source ID (should be 1 from database)
+    let sourceId = 1; // Default to Farsnews
     
-    // Wait for content to load
-    console.log('Waiting for content to load...');
-    await new Promise(resolve => setTimeout(resolve, 10000));
-    
-    console.log('Extracting articles...');
-    
-    // Extract articles from the page
-    const articles = await page.evaluate(() => {
-      const results = [];
-      
-      // Get all links that might be news articles
-      const newsLinks = document.querySelectorAll('a[href*="/news"], a[href*="/showcase"], a[href*="13"]');
-      console.log(`Found ${newsLinks.length} potential news links`);
-      
-      newsLinks.forEach((link, index) => {
-        const title = link.textContent?.trim();
-        const href = link.getAttribute('href');
-        
-        if (title && href && title.length > 10) {
-          const fullLink = href.startsWith('http') ? href : `https://www.farsnews.ir${href}`;
-          
-          results.push({
-            title: title,
-            link: fullLink,
-            published_date: new Date().toISOString(),
-            depth: 0 // Main articles have depth 0
-          });
-        }
-      });
-      
-      return results;
-    });
-    
-    console.log(`Found ${articles.length} articles`);
-    
-    let newArticlesCount = 0;
-    const processedArticles = [];
-    const allCrawledArticles = [];
-    
-    // Process each article
-    for (let i = 0; i < Math.min(articles.length, maxArticles); i++) {
-      const article = articles[i];
-      
-      try {
-        let internalLinks = [];
-        
-        // Extract full content if requested
-        if (crawlWithContent) {
-          console.log(`Extracting content for: ${article.title}`);
-          const result = await extractArticleContent(page, article.link);
-          article.content = result.content;
-          article.summary = result.content.substring(0, 200) + '...';
-          internalLinks = result.internalLinks || [];
-        }
-        
-        // Save main article to database
-        const saveResult = await saveArticle(article);
-        
-        if (saveResult.saved) {
-          newArticlesCount++;
-          console.log(`✓ New article saved: ${article.title}`);
-        } else {
-          console.log(`- Article already exists: ${article.title}`);
-        }
-        
-        processedArticles.push({
-          ...article,
-          isNew: saveResult.saved,
-          id: saveResult.id,
-          internalLinksFound: internalLinks.length
-        });
-        
-        // Crawl internal links if depth > 0
-        if (crawlDepth > 0 && internalLinks.length > 0) {
-          console.log(`  Found ${internalLinks.length} internal links, crawling with depth ${crawlDepth}...`);
-          const crawledLinks = await crawlInternalLinks(page, internalLinks, crawlDepth);
-          
-          // Save crawled internal articles
-          for (const crawledArticle of crawledLinks) {
-            try {
-              const crawledSaveResult = await saveArticle(crawledArticle);
-              
-              if (crawledSaveResult.saved) {
-                newArticlesCount++;
-                console.log(`  ✓ Internal article saved (depth ${crawledArticle.depth}): ${crawledArticle.title}`);
-              } else {
-                console.log(`  - Internal article already exists: ${crawledArticle.title}`);
-              }
-              
-              allCrawledArticles.push({
-                ...crawledArticle,
-                isNew: crawledSaveResult.saved,
-                id: crawledSaveResult.id
-              });
-              
-            } catch (error) {
-              console.error(`Error saving internal article ${crawledArticle.title}:`, error.message);
-            }
-          }
-        }
-        
-      } catch (error) {
-        console.error(`Error processing article ${article.title}:`, error.message);
-        processedArticles.push({
-          ...article,
-          error: error.message
-        });
+    try {
+      const db = database.db;
+      const sourceResult = await db.query(
+        "SELECT id FROM news_sources WHERE name = 'فارس‌نیوز' AND active = true LIMIT 1"
+      );
+      if (sourceResult.rows && sourceResult.rows.length > 0) {
+        sourceId = sourceResult.rows[0].id;
       }
+    } catch (dbError) {
+      logger.warn('Could not get source ID from database, using default:', dbError.message);
     }
     
-    // Save crawl history
-    const totalArticlesProcessed = processedArticles.length + allCrawledArticles.length;
-    await db.query(
-      'INSERT INTO crawl_history (crawl_date, articles_found, new_articles) VALUES ($1, $2, $3)',
-      [new Date().toISOString(), totalArticlesProcessed, newArticlesCount]
-    );
+    logger.info(`Starting crawl with source ID: ${sourceId}, options:`, options);
     
-    await browser.close();
+    const result = await crawler.crawlSource(sourceId, options);
     
-    res.json({
-      success: true,
-      totalFound: articles.length,
-      processed: processedArticles.length,
-      internalArticlesCrawled: allCrawledArticles.length,
-      totalProcessed: totalArticlesProcessed,
-      newArticles: newArticlesCount,
-      crawlDepth: crawlDepth,
-      mainArticles: processedArticles,
-      internalArticles: allCrawledArticles,
-      articles: [...processedArticles, ...allCrawledArticles] // Combined for backward compatibility
+    logger.info('Crawl completed:', {
+      success: result.success,
+      source: result.source,
+      totalProcessed: result.totalProcessed,
+      newArticles: result.newArticles
     });
+    
+    // Format response to match legacy API format
+    const response = {
+      success: result.success || true,
+      source: result.source || "فارس‌نیوز",
+      totalFound: result.totalFound || 0,
+      processed: result.processed || 0,
+      internalArticlesCrawled: result.internalArticlesCrawled || 0,
+      totalProcessed: result.totalProcessed || 0,
+      newArticles: result.newArticles || 0,
+      crawlDepth: crawlDepth,
+      mainArticles: result.mainArticles || [],
+      internalArticles: result.internalArticles || [],
+      articles: result.articles || [] // Combined for backward compatibility
+    };
+    
+    if (result.error) {
+      response.error = result.error;
+      response.success = false;
+    }
+    
+    res.json(response);
     
   } catch (error) {
     console.error('Error:', error);
