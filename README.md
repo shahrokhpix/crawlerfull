@@ -1,195 +1,128 @@
-# 🚀 کرالر خبری پیشرفته
+# 🚀 Advanced News Crawler
 
-یک سیستم کرالر خبری کامل و پیشرفته با قابلیت‌های مدیریتی، API کامل و پشتیبانی از Docker.
+A production-ready news crawling platform with an admin panel, full REST API, PostgreSQL, Redis, WebSockets, and first-class Docker support.
 
-## 🌟 ویژگی‌های کلیدی
+## 🌟 Key Features
 
-- **🐳 پشتیبانی کامل از Docker** - راه‌اندازی آسان با یک دستور
-- **🌐 کرالر جهانی** - پشتیبانی از منابع خبری مختلف
-- **🎛️ پنل مدیریتی** - رابط کاربری کامل برای مدیریت
-- **🔌 WebSocket** - لاگ‌های realtime
-- **⚖️ Load Balancer** - مدیریت بار خودکار
-- **🗄️ PostgreSQL** - دیتابیس قدرتمند و بهینه
-- **📊 API کامل** - RESTful API برای توسعه‌دهندگان
-- **📝 سیستم لاگ** - ثبت و نظارت کامل عملیات
-- **⏰ زمان‌بندی** - کرال خودکار
-- **🧹 پاک‌سازی** - مدیریت حافظه و دیتابیس
+- **Docker-first**: One-command setup, reproducible builds (Node 20 Alpine)
+- **Universal crawler**: Pluggable news sources and selectors
+- **Admin panel**: Manage sources, schedules, logs
+- **Real-time logs**: WebSocket streaming
+- **PostgreSQL + Redis**: Reliable storage and caching
+- **Robust logging and scheduling**
 
-## 🚀 راه‌اندازی سریع با Docker
+## ⚙️ Prerequisites
+- Docker 20.10+
+- Docker Compose 2.0+
 
-### پیش‌نیازها
-- **Docker** (نسخه 20.10+)
-- **Docker Compose** (نسخه 2.0+)
-
-### نصب و راه‌اندازی
+## 🚀 Quick Start (Recommended)
 
 ```bash
-# 1. کلون کردن پروژه
+# 1) Clone
 git clone https://github.com/shahrokhpix/crawlerfull.git
 cd crawlerfull
 
-# 2. تنظیم متغیرهای محیطی
+# 2) Environment
 cp .env.example .env
-# فایل .env را ویرایش کنید
+# Edit .env if needed (DB_PASSWORD, ADMIN credentials, etc.)
 
-# 3. اجرای پروژه
-# Windows:
-docker-start.bat
-
-# Linux/Mac:
+# 3) Build and run (Linux/macOS)
 chmod +x docker-start.sh
-./docker-start.sh
+./docker-start.sh --iran   # uses Node 20 Alpine + Iran mirrors
 
-# یا مستقیماً:
-docker-compose up -d
+# Windows (PowerShell or CMD)
+./docker-start.bat --iran
 ```
 
-### دسترسی به سرویس‌ها
-- **پنل ادمین**: http://localhost:3004/admin
-- **API**: http://localhost:3004/api
-- **RSS Feed**: http://localhost:3004/rss
+Service access (default host):
+- Admin Panel: http://localhost:3005/admin
+- API: http://localhost:3005/api
+- RSS: http://localhost:3005/rss
+- PostgreSQL: localhost:5433 (db=crawler_db user=crawler_user)
+- Redis: localhost:6380
 
-### اطلاعات ورود پیش‌فرض
-- **نام کاربری**: admin
-- **رمز عبور**: admin123
+Ports are mapped as follows:
+- App 3005 -> container 3004
+- PostgreSQL 5433 -> 5432
+- Redis 6380 -> 6379
 
-## 📚 مستندات کامل
+## 🇮🇷 Iran-friendly build
+We provide an Iran-optimized build path (Dockerfile.iran) using `npmmirror` to improve reliability.
+- Linux/macOS: `./docker-start.sh --iran`
+- Windows: `docker-start.bat --iran`
 
-- [📖 راهنمای Docker](README-Docker.md) - راهنمای کامل Docker
-- [🔧 راهنمای نصب](README-FINAL.md) - نصب بدون Docker
-- [🐳 راهنمای Docker](README-Docker.md) - راهنمای Docker
-- [🚀 راهنمای استقرار](SERVER_DEPLOYMENT_GUIDE.md) - استقرار در سرور
-
-## 🛠️ دستورات مفید Docker
-
+## 🧰 Other run modes
 ```bash
-# اجرای پروژه
-docker-compose up -d
-
-# مشاهده لاگ‌ها
-docker-compose logs -f
-
-# توقف پروژه
-docker-compose down
-
-# راه‌اندازی مجدد
-docker-compose restart
-
-# پاک کردن کامل
-docker-compose down -v --rmi all
-
-# به‌روزرسانی
-docker-compose pull
-docker-compose up -d
+./docker-start.sh --full          # default full stack
+./docker-start.sh --no-nginx      # run without nginx
+./docker-start.sh --pm2           # pm2 profile
+./docker-start.sh --dev           # compose + compose.dev
+./docker-start.sh --no-puppeteer  # build without puppeteer
+./docker-start.sh --alpine        # force Dockerfile.alpine
+./docker-start.sh --clean         # prune and rebuild
 ```
 
-## 🧪 تست‌ها
+Windows equivalents: pass the same flags to `docker-start.bat`.
 
+## 🔐 Database bootstrap
+- On first run, the init script creates both the role and database if missing:
+  - Role: `crawler_user`
+  - Database: `crawler_db`
+  - Password: from `.env` (`DB_PASSWORD`, default `your_secure_password`)
+- Schema, indices, seed data, and default admin user are created idempotently.
+
+Manual DB check:
 ```bash
-# تست سریع
+docker-compose exec postgres psql -U crawler_user -d crawler_db -c "\dt"
+```
+
+## 🧪 Tests
+```bash
 cd test
 node quick-test.js
-
-# تست استرس
 node stress-test.js
-
-# تست پیشرفته
 node advanced-stress-test.js
 ```
 
-## 📊 API Documentation
+## 📚 More Docs
+- Docker guide: README-Docker.md
+- Server deployment: SERVER_DEPLOYMENT_GUIDE.md
 
-### Legacy Endpoints
-- `GET /api/farsnews` - کرال مقالات جدید
-- `GET /api/articles` - دریافت مقالات ذخیره شده
-- `GET /api/stats` - آمار کرال
-- `GET /rss` - RSS feed
+## 🐛 Troubleshooting
 
-### New Universal Crawler API
-- `POST /api/auth/login` - ورود ادمین
-- `GET /api/sources` - مدیریت منابع خبری
-- `POST /api/crawler/crawl` - کرالر جهانی
-- `GET /api/logs` - مشاهده لاگ‌های کرال
+- Health check / app restart loop:
+  - Ensure ports 3005, 5433, 6380 are free
+  - Use clean start: `./docker-start.sh --clean`
+- PostgreSQL role/database missing or corrupted data volume:
+  - `chmod +x fix-postgres.sh && ./fix-postgres.sh`
+- Slow installs from Iran:
+  - Use `--iran` mode to enable mirrors
 
-### Load Balancer API
-- `GET /api/load-balancer/status` - وضعیت Load Balancer
-- `POST /api/load-balancer/mode` - تنظیم حالت بار
-
-## 🏗️ ساختار پروژه
-
+## 📦 Project Structure
 ```
-farsnews/
-├── 📄 index.js                 # فایل اصلی برنامه
-├── 📁 config/                  # تنظیمات
-├── 📁 services/                # سرویس‌های اصلی
-├── 📁 routes/                  # مسیرهای API
-├── 📁 middleware/              # میان‌افزارها
-├── 📁 public/                  # فایل‌های عمومی
-├── 📁 logs/                    # لاگ‌ها
-├── 📁 utils/                   # ابزارهای کمکی
-├── 📁 test/                    # تست‌ها
-├── 🗄️ PostgreSQL               # دیتابیس PostgreSQL
-├── ⚙️ ecosystem.config.js      # تنظیمات PM2
-├── 🔧 .env                     # متغیرهای محیطی
-├── 📦 package.json             # وابستگی‌ها
-├── 🐳 docker-compose.yml       # تنظیمات Docker
-├── 🐳 Dockerfile               # فایل Docker
-└── 🚀 docker-start.sh          # اسکریپت Docker
+project/
+├── index.js                 # Main app
+├── config/                  # Configs
+├── services/                # Core services
+├── routes/                  # API routes
+├── middleware/              # Middlewares
+├── public/                  # Admin UI
+├── scripts/                 # DB init, helpers
+├── logs/                    # Logs
+├── utils/                   # Utilities
+├── test/                    # Tests
+├── docker-compose.yml       # Docker Compose
+├── Dockerfile*              # Build variants (iran, alpine, no-puppeteer)
+└── docker-start.*           # Non-interactive start scripts
 ```
 
-## 🔒 امنیت
+## 🔒 Security checklist
+- Change default admin password in `.env`
+- If exposed to the internet, place behind HTTPS (nginx) and restrict access
+- Rotate JWT/Session secrets
 
-### تنظیمات امنیتی توصیه شده:
-1. **تغییر رمز عبور پیش‌فرض**
-2. **استفاده از HTTPS** (با Nginx)
-3. **محدودیت دسترسی IP** (در صورت نیاز)
-4. **به‌روزرسانی منظم سیستم**
-5. **نظارت بر لاگ‌ها**
+## 🤝 Contributing
+1) Fork  2) `git checkout -b feature/...`  3) Commit  4) Push  5) PR
 
-## 🐛 عیب‌یابی
-
-### مشکلات رایج Docker:
-
-#### کانتینر اجرا نمی‌شود:
-```bash
-docker-compose logs crawler
-docker-compose ps
-```
-
-#### مشکل اتصال دیتابیس:
-```bash
-docker-compose logs postgres
-docker-compose exec postgres psql -U crawler_user -d crawler_db
-```
-
-#### مشکل حافظه:
-```bash
-docker stats
-docker system prune
-```
-
-## 🤝 مشارکت
-
-برای مشارکت در پروژه:
-
-1. Fork کنید
-2. Branch جدید ایجاد کنید (`git checkout -b feature/AmazingFeature`)
-3. تغییرات را commit کنید (`git commit -m 'Add some AmazingFeature'`)
-4. Push کنید (`git push origin feature/AmazingFeature`)
-5. Pull Request ایجاد کنید
-
-## 📄 لایسنس
-
-این پروژه تحت لایسنس MIT منتشر شده است.
-
-## 📞 پشتیبانی
-
-برای گزارش مشکلات یا سوالات:
-- GitHub Issues: [اینجا](https://github.com/shahrokhpix/crawlerfull/issues)
-- Email: shahrokhpix@gmail.com
-
----
-
-**⭐ اگر این پروژه برایتان مفید بود، لطفاً آن را ستاره دهید!**
-
-**⚠️ نکته**: قبل از استفاده در محیط production، حتماً تنظیمات امنیتی را بررسی و بهینه کنید.
+## 📄 License
+MIT
