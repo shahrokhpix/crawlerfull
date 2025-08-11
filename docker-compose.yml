@@ -65,7 +65,7 @@ services:
       - PUPPETEER_SKIP_DOWNLOAD=true
       - PUPPETEER_EXECUTABLE_PATH=/usr/bin/chromium-browser
     ports:
-      - "${PORT:-3005}:3004"
+      - "3005:3004"
     volumes:
       - ./logs:/app/logs
       - ./data:/app/data
@@ -127,7 +127,7 @@ services:
       - DB_USER=crawler_user
       - DB_PASSWORD=${DB_PASSWORD:-your_secure_password}
     ports:
-      - "${PORT:-3005}:3004"
+      - "3005:3004"
     volumes:
       - ./logs:/app/logs
       - ./data:/app/data
