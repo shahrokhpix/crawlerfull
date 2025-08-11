@@ -1,103 +1,71 @@
 @echo off
-echo 🐳 Starting News Crawler with Docker
-echo ========================================
+setlocal enabledelayedexpansion
 
-REM Check if Docker is installed
-docker --version >nul 2>&1
-if errorlevel 1 (
-    echo ❌ Docker not found. Please install Docker Desktop.
-    pause
-    exit /b 1
-)
+set MODE=full
 
-REM Check if Docker Compose is installed
-docker-compose --version >nul 2>&1
-if errorlevel 1 (
-    echo ❌ Docker Compose not found. Please install Docker Compose.
-    pause
-    exit /b 1
-)
+:parse
+if "%~1"=="" goto endparse
+if /I "%~1"=="--full" set MODE=full& shift & goto parse
+if /I "%~1"=="--no-nginx" set MODE=no-nginx& shift & goto parse
+if /I "%~1"=="--pm2" set MODE=pm2& shift & goto parse
+if /I "%~1"=="--dev" set MODE=dev& shift & goto parse
+if /I "%~1"=="--no-puppeteer" set MODE=no-puppeteer& shift & goto parse
+if /I "%~1"=="--alpine" set MODE=alpine& shift & goto parse
+if /I "%~1"=="--iran" set MODE=iran& shift & goto parse
+if /I "%~1"=="--clean" set MODE=clean& shift & goto parse
+shift
+goto parse
+:endparse
 
-echo ✅ Docker and Docker Compose are ready
-echo.
+where docker >nul 2>nul || (echo Docker not found& exit /b 1)
+where docker-compose >nul 2>nul || (echo Docker Compose not found& exit /b 1)
 
-REM Check if .env file exists
-if not exist ".env" (
-    echo ⚠️ .env file not found. Copying from .env.example...
-    copy .env.example .env
-    echo ✅ .env file created. Please check the settings.
-    echo.
-)
+if not exist .env copy .env.example .env >nul
 
-echo Select execution type:
-echo 1. Full execution (Recommended)
-echo 2. Execute without Nginx
-echo 3. Execute with PM2
-echo 4. Execute in development mode
-echo 5. Execute without Puppeteer (for problematic servers)
-echo 6. Execute with alternative Dockerfile
-echo 7. Execute with Iranian mirrors (Recommended for Iran)
-echo 8. Clean and restart
-echo.
+echo Building with Node 20 Alpine...
+set DOCKERFILE_OPT=Dockerfile.iran
 
-set /p choice="Please select execution type (1-8): "
-
-if "%choice%"=="1" (
-    echo 🚀 Starting full project...
-    docker-compose up -d
-) else if "%choice%"=="2" (
-    echo 🚀 Execute without Nginx...
-    docker-compose up -d postgres redis crawler
-) else if "%choice%"=="3" (
-    echo 🚀 Execute with PM2...
-    docker-compose --profile pm2 up -d
-) else if "%choice%"=="4" (
-    echo 🚀 Execute in development mode...
-    docker-compose -f docker-compose.yml -f docker-compose.dev.yml up -d
-) else if "%choice%"=="5" (
-    echo 🚀 Execute without Puppeteer...
-    docker-compose -f docker-compose.yml build --build-arg DOCKERFILE=Dockerfile.no-puppeteer
-    docker-compose up -d postgres redis crawler
-) else if "%choice%"=="6" (
-    echo 🚀 Execute with alternative Dockerfile...
-    docker-compose -f docker-compose.yml build --build-arg DOCKERFILE=Dockerfile.alpine
-    docker-compose up -d
-) else if "%choice%"=="7" (
-    echo 🚀 Execute with Iranian mirrors...
-    docker-compose -f docker-compose.yml build --build-arg DOCKERFILE=Dockerfile.iran
-    docker-compose up -d
-) else if "%choice%"=="8" (
-    echo 🧹 Clean and restart...
-    docker-compose down -v
-    docker-compose build --no-cache
-    docker-compose up -d
+if /I "%MODE%"=="full" (
+  docker-compose -f docker-compose.yml build --build-arg DOCKERFILE=%DOCKERFILE_OPT%
+  docker-compose up -d
+) else if /I "%MODE%"=="no-nginx" (
+  docker-compose -f docker-compose.yml build --build-arg DOCKERFILE=%DOCKERFILE_OPT%
+  docker-compose up -d postgres redis crawler
+) else if /I "%MODE%"=="pm2" (
+  docker-compose -f docker-compose.yml build --build-arg DOCKERFILE=%DOCKERFILE_OPT%
+  docker-compose --profile pm2 up -d
+) else if /I "%MODE%"=="dev" (
+  docker-compose -f docker-compose.yml -f docker-compose.dev.yml build --build-arg DOCKERFILE=%DOCKERFILE_OPT%
+  docker-compose -f docker-compose.yml -f docker-compose.dev.yml up -d
+) else if /I "%MODE%"=="no-puppeteer" (
+  docker-compose -f docker-compose.yml build --build-arg DOCKERFILE=Dockerfile.no-puppeteer
+  docker-compose up -d postgres redis crawler
+) else if /I "%MODE%"=="alpine" (
+  docker-compose -f docker-compose.yml build --build-arg DOCKERFILE=Dockerfile.alpine
+  docker-compose up -d
+) else if /I "%MODE%"=="iran" (
+  docker-compose -f docker-compose.yml build --build-arg DOCKERFILE=Dockerfile.iran
+  docker-compose up -d
+) else if /I "%MODE%"=="clean" (
+  docker-compose down -v
+  docker system prune -a -f --volumes
+  docker-compose -f docker-compose.yml build --no-cache --build-arg DOCKERFILE=%DOCKERFILE_OPT%
+  docker-compose up -d
 ) else (
-    echo ❌ Invalid selection
-    pause
-    exit /b 1
+  echo Unknown mode: %MODE%
+  exit /b 1
 )
 
-echo.
-echo ⏳ Waiting for services to start...
-timeout /t 10 /nobreak >nul
+echo Waiting for services...
+ping -n 10 127.0.0.1 >nul
 
-echo.
-echo 📊 Container status:
 docker-compose ps
 
-echo.
-echo 🌐 Service access:
-echo    Admin Panel: http://localhost:3005/admin
-echo    API: http://localhost:3005/api
-echo    RSS Feed: http://localhost:3005/rss
-echo    PostgreSQL: localhost:5433
-echo    Redis: localhost:6380
-echo.
+echo Service access:
+echo   Admin:  http://localhost:3005/admin
+echo   API:    http://localhost:3005/api
+echo   RSS:    http://localhost:3005/rss
+echo   PG:     localhost:5433
+echo   Redis:  localhost:6380
 
-echo Useful commands:
-echo   View logs: docker-compose logs -f
-echo   Stop: docker-compose down
-echo   Restart: docker-compose restart
-echo.
-
-pause 
+endlocal 

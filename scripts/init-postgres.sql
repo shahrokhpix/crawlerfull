@@ -1,14 +1,29 @@
 -- PostgreSQL Initial Setup Script for News Crawler
--- This script runs when the PostgreSQL container starts for the first time
+-- Runs on first container start
 
--- Connect to the database (already created by environment variables)
-\c crawler_db;
+-- Create role and database if they don't exist
+DO $$
+BEGIN
+   IF NOT EXISTS (SELECT FROM pg_catalog.pg_roles WHERE rolname = 'crawler_user') THEN
+      CREATE ROLE crawler_user LOGIN PASSWORD 'your_secure_password';
+   END IF;
+END$$;
 
--- Create extensions
+DO $$
+BEGIN
+   IF NOT EXISTS (SELECT FROM pg_database WHERE datname = 'crawler_db') THEN
+      CREATE DATABASE crawler_db OWNER crawler_user;
+   END IF;
+END$$;
+
+-- Connect to database
+\c crawler_db
+
+-- Extensions
 CREATE EXTENSION IF NOT EXISTS "uuid-ossp";
 CREATE EXTENSION IF NOT EXISTS "pg_trgm";
 
--- Create tables
+-- Tables
 CREATE TABLE IF NOT EXISTS news_sources (
   id SERIAL PRIMARY KEY,
   name TEXT NOT NULL UNIQUE,
@@ -148,7 +163,7 @@ CREATE TABLE IF NOT EXISTS cleanup_schedules (
   updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
 );
 
--- Create indexes for better performance
+-- Indexes
 CREATE INDEX IF NOT EXISTS idx_articles_created_at ON articles(created_at);
 CREATE INDEX IF NOT EXISTS idx_articles_source_id ON articles(source_id);
 CREATE INDEX IF NOT EXISTS idx_articles_hash ON articles(hash);
@@ -160,7 +175,7 @@ CREATE INDEX IF NOT EXISTS idx_queue_status_priority ON queue_jobs(status, prior
 CREATE INDEX IF NOT EXISTS idx_crawl_logs_source_id ON crawl_logs(source_id);
 CREATE INDEX IF NOT EXISTS idx_operation_logs_source_id ON operation_logs(source_id);
 
--- Insert initial data
+-- Seed data
 INSERT INTO news_sources (name, base_url, list_selector, title_selector, content_selector, link_selector)
 VALUES 
   ('فارس‌نیوز', 'https://www.farsnews.ir/showcase', 'a[href*="/news/"]', 'h1, .title', '.story, .content, .news-content, p', 'a'),
@@ -169,20 +184,17 @@ VALUES
   ('ایرنا', 'https://www.irna.ir/news', 'a[href*="/news/"]', 'h1, .title', '.content, .news-content, p', 'a')
 ON CONFLICT (name) DO NOTHING;
 
--- Insert default admin user (password: admin123)
+-- Default admin
 INSERT INTO admin_users (username, password_hash, email)
 VALUES ('admin', '$2a$10$6Pf5M88A/ih16lsZQplsledbO/vIqoIc5QJ49RwLaCHkxqjgk/DQa', 'admin@crawler.local')
-ON CONFLICT (username) DO UPDATE SET
-    password_hash = EXCLUDED.password_hash,
-    email = EXCLUDED.email;
+ON CONFLICT (username) DO UPDATE SET password_hash = EXCLUDED.password_hash, email = EXCLUDED.email;
 
--- Grant permissions to crawler_user
+-- Permissions
 GRANT ALL PRIVILEGES ON ALL TABLES IN SCHEMA public TO crawler_user;
 GRANT ALL PRIVILEGES ON ALL SEQUENCES IN SCHEMA public TO crawler_user;
 GRANT ALL PRIVILEGES ON SCHEMA public TO crawler_user;
 
--- Analyze tables for better query planning
+-- Analyze
 ANALYZE;
 
--- Log completion
 \echo 'PostgreSQL setup completed successfully!' 

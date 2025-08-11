@@ -1,5 +1,5 @@
-# Use Node.js 18 Alpine for smaller size
-FROM node:18-alpine
+# Use Node.js 20 Alpine for smaller size
+FROM node:20-alpine
 
 # Install system dependencies
 RUN apk add --no-cache \
