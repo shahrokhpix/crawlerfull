@@ -1,11 +1,8 @@
--- PostgreSQL Initial Setup Script for FarsNews Crawler
+-- PostgreSQL Initial Setup Script for News Crawler
 -- This script runs when the PostgreSQL container starts for the first time
 
--- Create database if not exists (already created by environment variables)
--- CREATE DATABASE farsnews_crawler_spider_db;
-
--- Connect to the database
-\c farsnews_crawler_spider_db;
+-- Connect to the database (already created by environment variables)
+\c crawler_db;
 
 -- Create extensions
 CREATE EXTENSION IF NOT EXISTS "uuid-ossp";
@@ -179,10 +176,10 @@ ON CONFLICT (username) DO UPDATE SET
     password_hash = EXCLUDED.password_hash,
     email = EXCLUDED.email;
 
--- Grant permissions
-GRANT ALL PRIVILEGES ON ALL TABLES IN SCHEMA public TO farsnews_user;
-GRANT ALL PRIVILEGES ON ALL SEQUENCES IN SCHEMA public TO farsnews_user;
-GRANT ALL PRIVILEGES ON SCHEMA public TO farsnews_user;
+-- Grant permissions to crawler_user
+GRANT ALL PRIVILEGES ON ALL TABLES IN SCHEMA public TO crawler_user;
+GRANT ALL PRIVILEGES ON ALL SEQUENCES IN SCHEMA public TO crawler_user;
+GRANT ALL PRIVILEGES ON SCHEMA public TO crawler_user;
 
 -- Analyze tables for better query planning
 ANALYZE;
