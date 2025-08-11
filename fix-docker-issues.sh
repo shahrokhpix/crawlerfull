@@ -1,125 +1,149 @@
 #!/bin/bash
 
-echo "🔧 حل مشکلات Docker"
+echo "🔧 Fixing Docker Issues"
 echo "========================================"
 
-# بررسی وجود Docker
+# Check if Docker is installed
 if ! command -v docker &> /dev/null; then
-    echo "❌ Docker یافت نشد. لطفاً Docker را نصب کنید."
+    echo "❌ Docker not found. Please install Docker."
     exit 1
 fi
 
-echo "✅ Docker آماده است"
+echo "✅ Docker is ready"
 echo ""
 
-echo "انتخاب مشکل:"
-echo "1. مشکل دانلود Puppeteer"
-echo "2. مشکل حافظه"
-echo "3. مشکل شبکه"
-echo "4. مشکل مجوزها"
-echo "5. پاک کردن کامل و شروع مجدد"
+echo "Select issue to fix:"
+echo "1. Fix Puppeteer download issues"
+echo "2. Fix memory issues"
+echo "3. Fix network issues"
+echo "4. Fix permission issues"
+echo "5. Fix PostgreSQL health check issues"
+echo "6. Complete cleanup and restart"
 echo ""
 
-read -p "لطفاً مشکل را انتخاب کنید (1-5): " choice
+read -p "Please select issue to fix (1-6): " choice
 
 case $choice in
     1)
-        echo "🔧 حل مشکل دانلود Puppeteer..."
+        echo "🔧 Fixing Puppeteer download issues..."
         
-        # توقف کانتینرها
+        # Stop containers
         docker-compose down
         
-        # پاک کردن cache
+        # Clean cache
         docker system prune -f
         
-        # ساخت مجدد با تنظیمات Puppeteer
-        echo "📦 ساخت مجدد با تنظیمات Puppeteer..."
-        docker-compose build --no-cache --build-arg DOCKERFILE=Dockerfile.alpine
+        # Rebuild with Puppeteer settings
+        echo "📦 Rebuilding with Puppeteer settings..."
+        docker-compose build --no-cache --build-arg DOCKERFILE=Dockerfile.iran
         
-        # اجرا
+        # Start
         docker-compose up -d
         
-        echo "✅ مشکل دانلود Puppeteer حل شد"
+        echo "✅ Puppeteer download issues fixed"
         ;;
     2)
-        echo "🔧 حل مشکل حافظه..."
+        echo "🔧 Fixing memory issues..."
         
-        # پاک کردن تصاویر استفاده نشده
+        # Clean unused images
         docker image prune -a -f
         
-        # پاک کردن کانتینرهای متوقف شده
+        # Clean stopped containers
         docker container prune -f
         
-        # پاک کردن volumes استفاده نشده
+        # Clean unused volumes
         docker volume prune -f
         
-        # پاک کردن networks استفاده نشده
+        # Clean unused networks
         docker network prune -f
         
-        echo "✅ حافظه پاک شد"
+        echo "✅ Memory cleaned"
         ;;
     3)
-        echo "🔧 حل مشکل شبکه..."
+        echo "🔧 Fixing network issues..."
         
-        # توقف کانتینرها
+        # Stop containers
         docker-compose down
         
-        # پاک کردن networks
+        # Clean networks
         docker network prune -f
         
-        # راه‌اندازی مجدد
+        # Restart
         docker-compose up -d
         
-        echo "✅ شبکه بازنشانی شد"
+        echo "✅ Network reset"
         ;;
     4)
-        echo "🔧 حل مشکل مجوزها..."
+        echo "🔧 Fixing permission issues..."
         
-        # تنظیم مجوزهای فایل‌ها
+        # Set file permissions
         chmod +x *.sh
         chmod 755 logs data config public
         
-        # تنظیم مالکیت
+        # Set ownership
         sudo chown -R $USER:$USER .
         
-        echo "✅ مجوزها تنظیم شد"
+        echo "✅ Permissions fixed"
         ;;
     5)
-        echo "🧹 پاک کردن کامل و شروع مجدد..."
+        echo "🔧 Fixing PostgreSQL health check issues..."
         
-        # توقف همه کانتینرها
+        # Stop containers
+        docker-compose down
+        
+        # Remove PostgreSQL volume
+        docker volume rm crawlerfull_postgres_data
+        
+        # Start PostgreSQL first
+        docker-compose up -d postgres
+        
+        # Wait for PostgreSQL to be ready
+        echo "⏳ Waiting for PostgreSQL to be ready..."
+        sleep 30
+        
+        # Start other services
+        docker-compose up -d redis crawler
+        
+        echo "✅ PostgreSQL health check issues fixed"
+        ;;
+    6)
+        echo "🧹 Complete cleanup and restart..."
+        
+        # Stop all containers
         docker-compose down -v
         
-        # پاک کردن همه چیز
+        # Clean everything
         docker system prune -a -f --volumes
         
-        # پاک کردن فایل‌های موقت
+        # Remove temporary files
         rm -rf node_modules package-lock.json
         
-        # نصب مجدد
+        # Reinstall
         npm install
         
-        # ساخت مجدد
+        # Rebuild
         docker-compose build --no-cache
         
-        # اجرا
+        # Start
         docker-compose up -d
         
-        echo "✅ سیستم کاملاً بازنشانی شد"
+        echo "✅ System completely reset"
         ;;
     *)
-        echo "❌ انتخاب نامعتبر"
+        echo "❌ Invalid selection"
         exit 1
         ;;
 esac
 
 echo ""
-echo "📊 وضعیت کانتینرها:"
+echo "📊 Container status:"
 docker-compose ps
 
 echo ""
-echo "🌐 دسترسی به سرویس‌ها:"
-echo "   پنل ادمین: http://localhost:3004/admin"
-echo "   API: http://localhost:3004/api"
-echo "   RSS Feed: http://localhost:3004/rss"
+echo "🌐 Service access:"
+echo "   Admin Panel: http://localhost:3005/admin"
+echo "   API: http://localhost:3005/api"
+echo "   RSS Feed: http://localhost:3005/rss"
+echo "   PostgreSQL: localhost:5433"
+echo "   Redis: localhost:6380"
 echo "" 
