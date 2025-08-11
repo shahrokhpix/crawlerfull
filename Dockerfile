@@ -29,10 +29,7 @@ WORKDIR /app
 COPY package*.json ./
 
 # نصب وابستگی‌ها با تنظیمات خاص برای Puppeteer
-RUN npm config set puppeteer_skip_chromium_download true && \
-    npm config set puppeteer_skip_download true && \
-    npm ci --only=production --ignore-scripts && \
-    npm cache clean --force
+RUN npm ci --only=production --ignore-scripts && npm cache clean --force
 
 # کپی کدهای برنامه
 COPY . .
