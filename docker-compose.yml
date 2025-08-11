@@ -66,12 +66,10 @@ services:
       - PUPPETEER_SKIP_DOWNLOAD=true
       - PUPPETEER_EXECUTABLE_PATH=/usr/bin/chromium-browser
     ports:
-      - "3005:3004"
+      - "3004:3004"
     volumes:
       - ./logs:/app/logs
       - ./data:/app/data
-      - ./config:/app/config
-      - ./public:/app/public
     depends_on:
       - postgres
       - redis
