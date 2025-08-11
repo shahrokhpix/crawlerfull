@@ -25,7 +25,7 @@
     "pg": "^8.16.3",
     "playwright": "^1.54.1",
     "playwright-extra": "^4.3.6",
-    "puppeteer": "^23.9.0",
+    "puppeteer": "^24.9.0",
     "puppeteer-extra": "^3.3.6",
     "puppeteer-extra-plugin-stealth": "^2.11.2",
     "rss-parser": "^3.13.0",
@@ -45,5 +45,11 @@
     "postgresql"
   ],
   "author": "News Crawler Team",
-  "license": "MIT"
+  "license": "MIT",
+  "engines": {
+    "node": ">=16.0.0",
+    "npm": ">=8.0.0"
+  },
+  "puppeteer_skip_chromium_download": true,
+  "puppeteer_skip_download": true
 }

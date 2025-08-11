@@ -3,35 +3,27 @@ FROM node:18-alpine
 
 # نصب وابستگی‌های سیستم مورد نیاز
 RUN apk add --no-cache \
-    chromium \
-    nss \
-    freetype \
-    freetype-dev \
-    harfbuzz \
-    ca-certificates \
-    ttf-freefont \
     curl \
     bash \
     git \
     && rm -rf /var/cache/apk/*
 
-# تنظیم متغیرهای محیطی برای Puppeteer
-ENV PUPPETEER_SKIP_CHROMIUM_DOWNLOAD=true \
-    PUPPETEER_EXECUTABLE_PATH=/usr/bin/chromium-browser \
-    PUPPETEER_SKIP_DOWNLOAD=true \
-    NODE_ENV=production \
+# تنظیم متغیرهای محیطی
+ENV NODE_ENV=production \
     TZ=Asia/Tehran
 
 # ایجاد دایرکتوری کار
 WORKDIR /app
 
 # کپی package.json و package-lock.json
-COPY package*.json ./
+COPY package*.json .npmrc ./
 
-# نصب وابستگی‌ها با تنظیمات خاص برای Puppeteer
-RUN npm config set puppeteer_skip_chromium_download true && \
-    npm config set puppeteer_skip_download true && \
-    npm ci --only=production --ignore-scripts && \
+# حذف Puppeteer از package.json موقتاً
+RUN sed -i '/puppeteer/d' package.json && \
+    sed -i '/puppeteer-extra/d' package.json
+
+# نصب وابستگی‌ها
+RUN npm ci --only=production --ignore-scripts --no-optional && \
     npm cache clean --force
 
 # کپی کدهای برنامه
@@ -52,4 +44,4 @@ HEALTHCHECK --interval=30s --timeout=10s --start-period=40s --retries=3 \
     CMD curl -f http://localhost:3004/api/health || exit 1
 
 # دستور اجرا
-CMD ["npm", "start"]
+CMD ["npm", "start"] 

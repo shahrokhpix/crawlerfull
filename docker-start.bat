@@ -34,10 +34,12 @@ echo 1. اجرای کامل (پیشنهادی)
 echo 2. اجرا بدون Nginx
 echo 3. اجرا با PM2
 echo 4. اجرا در حالت توسعه
-echo 5. پاک کردن و اجرای مجدد
+echo 5. اجرا بدون Puppeteer (برای سرورهای مشکل‌دار)
+echo 6. اجرا با Dockerfile جایگزین
+echo 7. پاک کردن و اجرای مجدد
 echo.
 
-set /p choice="لطفاً نوع اجرا را انتخاب کنید (1-5): "
+set /p choice="لطفاً نوع اجرا را انتخاب کنید (1-7): "
 
 if "%choice%"=="1" (
     echo 🚀 اجرای کامل پروژه...
@@ -52,6 +54,14 @@ if "%choice%"=="1" (
     echo 🚀 اجرا در حالت توسعه...
     docker-compose -f docker-compose.yml -f docker-compose.dev.yml up -d
 ) else if "%choice%"=="5" (
+    echo 🚀 اجرا بدون Puppeteer...
+    docker-compose -f docker-compose.yml build --build-arg DOCKERFILE=Dockerfile.no-puppeteer
+    docker-compose up -d postgres redis crawler
+) else if "%choice%"=="6" (
+    echo 🚀 اجرا با Dockerfile جایگزین...
+    docker-compose -f docker-compose.yml build --build-arg DOCKERFILE=Dockerfile.alpine
+    docker-compose up -d
+) else if "%choice%"=="7" (
     echo 🧹 پاک کردن و اجرای مجدد...
     docker-compose down -v
     docker-compose build --no-cache
