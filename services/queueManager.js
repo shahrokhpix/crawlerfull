@@ -6,7 +6,7 @@ class QueueManager extends EventEmitter {
   constructor() {
     super();
     this.setMaxListeners(50); // افزایش حد مجاز listener ها
-    this.db = Database.db;
+    this.db = Database.getDb();
     this.queues = {
       high: [],     // اولویت بالا
       normal: [],   // اولویت عادی
@@ -35,7 +35,7 @@ class QueueManager extends EventEmitter {
   }
 
   // اضافه کردن کار به صف
-  addJob(job, priority = 'normal') {
+  async addJob(job, priority = 'normal') {
     const jobId = this.generateJobId();
     const jobData = {
       id: jobId,
@@ -53,7 +53,7 @@ class QueueManager extends EventEmitter {
     this.emit('jobAdded', jobData);
     
     // ذخیره در دیتابیس
-    this.saveJobToDb(jobData);
+    await this.saveJobToDb(jobData);
     
     return jobId;
   }
@@ -261,17 +261,13 @@ class QueueManager extends EventEmitter {
     // پاکسازی کارهای قدیمی تکمیل شده
     const cutoff = now - (24 * 60 * 60 * 1000); // 24 ساعت قبل
     
-    try {
-      await this.db.query(`
-        DELETE FROM queue_jobs 
-        WHERE status IN ('completed', 'failed') 
-        AND created_at < $1
-      `, [cutoff]);
-      
-      logger.info('پاکسازی اضطراری تکمیل شد');
-    } catch (error) {
-      logger.error('خطا در پاکسازی اضطراری:', error);
-    }
+    await this.db.query(`
+      DELETE FROM queue_jobs 
+      WHERE status IN ('completed', 'failed') 
+      AND created_at < $1
+    `, [cutoff]);
+    
+    logger.info('پاکسازی اضطراری تکمیل شد');
   }
 
   // تولید شناسه کار
@@ -287,8 +283,12 @@ class QueueManager extends EventEmitter {
           id, type, priority, status, data, attempts, created_at
         ) VALUES ($1, $2, $3, $4, $5, $6, $7)
         ON CONFLICT (id) DO UPDATE SET
-          type = $2, priority = $3, status = $4, data = $5, 
-          attempts = $6, updated_at = CURRENT_TIMESTAMP
+          type = EXCLUDED.type,
+          priority = EXCLUDED.priority,
+          status = EXCLUDED.status,
+          data = EXCLUDED.data,
+          attempts = EXCLUDED.attempts,
+          updated_at = CURRENT_TIMESTAMP
       `, [
         job.id,
         job.type,
@@ -299,7 +299,7 @@ class QueueManager extends EventEmitter {
         job.createdAt
       ]);
     } catch (error) {
-      logger.error('خطا در ذخیره کار در دیتابیس:', error);
+      logger.warn('خطا در ذخیره کار در دیتابیس:', error.message);
     }
   }
 
@@ -317,7 +317,7 @@ class QueueManager extends EventEmitter {
         job.id
       ]);
     } catch (error) {
-      logger.error('خطا در به‌روزرسانی کار در دیتابیس:', error);
+      logger.warn('خطا در به‌روزرسانی کار در دیتابیس:', error.message);
     }
   }
 

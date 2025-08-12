@@ -7,7 +7,7 @@ class PostgreSQLDatabase {
       user: process.env.DB_USER || 'crawler_user',
       host: process.env.DB_HOST || 'localhost',
       database: process.env.DB_NAME || 'crawler_db',
-      password: process.env.DB_PASSWORD || 'your_secure_password',
+      password: process.env.DB_PASSWORD || 'farsnews123',
       port: process.env.DB_PORT || 5432,
       max: 20, // connection pool size
       idleTimeoutMillis: 30000,

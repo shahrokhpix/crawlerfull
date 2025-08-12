@@ -493,7 +493,7 @@ app.get("/api/farsnews", async (req, res) => {
     const maxArticles = parseInt(req.query.limit) || 10;
     const crawlDepth = parseInt(req.query.depth) || 0;
     
-    logger.info(`Legacy farsnews API called with limit=${maxArticles}, full=${crawlWithContent}, depth=${crawlDepth}`);
+    console.log(`🚀 Legacy farsnews API called with limit=${maxArticles}, full=${crawlWithContent}, depth=${crawlDepth}`);
     
     // Use UniversalCrawler instead of direct puppeteer
     const crawler = new UniversalCrawler('puppeteer');
@@ -507,26 +507,34 @@ app.get("/api/farsnews", async (req, res) => {
       followLinks: crawlDepth > 0
     };
     
-    // Get Farsnews source ID (should be 1 from database)
-    let sourceId = 1; // Default to Farsnews
+    // Get Farsnews source ID dynamically (fallback to first active)
+    let sourceId = null;
     
     try {
       const db = database.getDb();
       const sourceResult = await db.query(
-        "SELECT id FROM news_sources WHERE name = 'فارس‌نیوز' AND active = true LIMIT 1"
+        "SELECT id FROM news_sources WHERE name IN ('فارس‌نیوز','farsnews','farsnews.ir') AND active = true ORDER BY id ASC LIMIT 1"
       );
       if (sourceResult.rows && sourceResult.rows.length > 0) {
         sourceId = sourceResult.rows[0].id;
+      } else {
+        const anyActive = await db.query("SELECT id FROM news_sources WHERE active = true ORDER BY id ASC LIMIT 1");
+        sourceId = anyActive.rows?.[0]?.id || null;
       }
     } catch (dbError) {
-      logger.warn('Could not get source ID from database, using default:', dbError.message);
+      logger.warn('Could not get source ID from database:', dbError.message);
     }
     
-    logger.info(`Starting crawl with source ID: ${sourceId}, options:`, options);
+    if (!sourceId) {
+      return res.status(404).json({ success: false, message: 'هیچ منبع فعالی یافت نشد' });
+    }
+    
+    console.log(`🎯 Starting crawl with source ID: ${sourceId}`);
+    console.log(`⚙️ Options:`, options);
     
     const result = await crawler.crawlSource(sourceId, options);
     
-    logger.info('Crawl completed:', {
+    console.log(`✅ Crawl completed:`, {
       success: result.success,
       source: result.source,
       totalProcessed: result.totalProcessed,

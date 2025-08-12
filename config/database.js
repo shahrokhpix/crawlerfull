@@ -6,8 +6,8 @@ class Database {
     this.pool = new Pool({
       user: process.env.DB_USER || 'crawler_user',
       host: process.env.DB_HOST || 'postgres',
-      database: process.env.DB_NAME || 'crawler_db',
-      password: process.env.DB_PASSWORD || 'crawler_password_2024',
+      database: process.env.DB_NAME || 'farsnews_crawler_spider_db',
+      password: process.env.DB_PASSWORD || 'farsnews123',
       port: parseInt(process.env.DB_PORT) || 5432,
       max: 20,
       idleTimeoutMillis: 30000,
@@ -30,13 +30,11 @@ class Database {
     if (this.isInitialized) return;
     
     try {
-      // Tables are created by init-postgres.sql in Docker
-      // Just test connection
-      await this.pool.query('SELECT 1');
+      await this.createTables();
       this.isInitialized = true;
-      logger.info('✅ Database connection established with PostgreSQL');
+      logger.info('Database با PostgreSQL راه‌اندازی شد');
     } catch (error) {
-      logger.error('❌ Database connection failed:', error);
+      logger.error('خطا در راه‌اندازی database:', error);
       throw error;
     }
   }

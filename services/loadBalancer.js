@@ -183,9 +183,10 @@ class LoadBalancer extends EventEmitter {
   async getDatabasePerformance() {
     try {
       const Database = require('../config/database');
+      const db = Database.getDb();
       const startTime = Date.now();
       
-      await Database.db.query('SELECT 1');
+      await db.query('SELECT 1 as health_check');
       
       return Date.now() - startTime;
     } catch (error) {

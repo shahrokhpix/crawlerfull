@@ -298,10 +298,11 @@ router.get('/schedules/:id', auth.verifyToken, async (req, res, next) => {
   try {
     const schedule = await scheduler.getScheduleById(req.params.id);
     if (schedule) {
-      // اطمینان از وجود فیلد is_active
+      // اطمینان از وجود فیلد active
       const formattedSchedule = {
         ...schedule,
-        is_active: schedule.is_active || schedule.active
+        active: schedule.active || schedule.is_active,
+        is_active: schedule.active || schedule.is_active
       };
       res.json(formattedSchedule);
     } else {
@@ -945,8 +946,24 @@ router.get('/farsnews', async (req, res) => {
   try {
     const { limit = 10, depth = 0, full = true } = req.query;
     
-    // فارس‌نیوز همیشه sourceId = 1
-    const result = await crawler.crawlSource(1, {
+    // تلاش برای پیدا کردن منبع فارس‌نیوز به‌صورت پویا
+    let farsId = null;
+    try {
+      const db = database.db;
+      const result = await db.query("SELECT id FROM news_sources WHERE name IN ('فارس‌نیوز','farsnews','farsnews.ir') AND active = true ORDER BY id ASC LIMIT 1");
+      farsId = result.rows?.[0]?.id || null;
+      if (!farsId) {
+        // fallback: اولین منبع فعال موجود
+        const anyActive = await db.query("SELECT id FROM news_sources WHERE active = true ORDER BY id ASC LIMIT 1");
+        farsId = anyActive.rows?.[0]?.id || null;
+      }
+    } catch (_) {}
+    
+    if (!farsId) {
+      return res.status(404).json({ success: false, message: 'هیچ منبع فعالی یافت نشد' });
+    }
+    
+    const result = await crawler.crawlSource(parseInt(farsId), {
       limit: parseInt(limit),
       crawlDepth: parseInt(depth),
       fullContent: full === 'true'
@@ -1507,87 +1524,8 @@ router.get('/stats', async (req, res) => {
 // دریافت لاگ‌ها
 router.get('/logs', auth.verifyToken, async (req, res) => {
   try {
-    const { 
-      limit = 50, 
-      offset = 0, 
-      source_id, 
-      status, 
-      action, 
-      date_from, 
-      date_to, 
-      message, 
-      sort = 'created_at',
-      order = 'desc'
-    } = req.query;
-    
-    let query = `
-      SELECT cl.*, ns.name as source_name
-      FROM crawl_logs cl
-      LEFT JOIN news_sources ns ON cl.source_id = ns.id
-      WHERE 1=1
-    `;
-    const params = [];
-    let paramIndex = 1;
-    
-    // فیلتر بر اساس منبع
-    if (source_id) {
-      query += ` AND cl.source_id = $${paramIndex}`;
-      params.push(source_id);
-      paramIndex++;
-    }
-    
-    // فیلتر بر اساس وضعیت
-    if (status) {
-      query += ` AND cl.status = $${paramIndex}`;
-      params.push(status);
-      paramIndex++;
-    }
-    
-    // فیلتر بر اساس عملیات
-    if (action) {
-      query += ` AND cl.action = $${paramIndex}`;
-      params.push(action);
-      paramIndex++;
-    }
-    
-    // فیلتر بر اساس تاریخ از
-    if (date_from) {
-      query += ` AND cl.created_at >= $${paramIndex}`;
-      params.push(date_from);
-      paramIndex++;
-    }
-    
-    // فیلتر بر اساس تاریخ تا
-    if (date_to) {
-      query += ` AND cl.created_at <= $${paramIndex}`;
-      params.push(date_to);
-      paramIndex++;
-    }
-    
-    // جستجو در پیام
-    if (message) {
-      query += ` AND cl.message ILIKE $${paramIndex}`;
-      params.push(`%${message}%`);
-      paramIndex++;
-    }
-    
-    // مرتب‌سازی
-    const validSortFields = ['created_at', 'source_name', 'action', 'status', 'articles_found', 'articles_processed', 'duration_ms'];
-    const sortField = validSortFields.includes(sort) ? sort : 'created_at';
-    const sortOrder = order === 'asc' ? 'ASC' : 'DESC';
-    query += ` ORDER BY cl.${sortField} ${sortOrder}`;
-    
-    // شمارش کل رکوردها
-    const countQuery = query.replace(/SELECT.*FROM/, 'SELECT COUNT(*) as total FROM');
-    const countResult = await connectionPool.query(countQuery, params);
-    const totalCount = parseInt(countResult.rows[0].total);
-    
-    // اضافه کردن limit و offset
-    query += ` LIMIT $${paramIndex} OFFSET $${paramIndex + 1}`;
-    params.push(parseInt(limit), parseInt(offset));
-    
-    const result = await connectionPool.query(query, params);
-    const logs = result.rows;
+    const { limit = 50 } = req.query;
+    const logs = await logger.getRecentLogs(parseInt(limit));
     
     // تبدیل زمان‌ها به تهران
     const formattedLogs = logs.map(log => ({
@@ -1596,20 +1534,9 @@ router.get('/logs', auth.verifyToken, async (req, res) => {
       created_at: log.created_at ? moment(log.created_at).tz('Asia/Tehran').format('YYYY/MM/DD HH:mm:ss') : log.created_at
     }));
     
-    // محاسبه اطلاعات صفحه‌بندی
-    const currentPage = Math.floor(offset / limit) + 1;
-    const totalPages = Math.ceil(totalCount / limit);
-    
     res.json({
       success: true,
-      logs: formattedLogs,
-      pagination: {
-        currentPage,
-        totalPages,
-        totalCount,
-        limit: parseInt(limit),
-        offset: parseInt(offset)
-      }
+      logs: formattedLogs
     });
   } catch (error) {
     logger.error('خطا در دریافت لاگ‌ها:', error);
@@ -1620,220 +1547,47 @@ router.get('/logs', auth.verifyToken, async (req, res) => {
   }
 });
 
-// دریافت آمار لاگ‌ها
-router.get('/logs/stats', auth.verifyToken, async (req, res) => {
-  try {
-    const { source_id, date_from, date_to } = req.query;
-    
-    let whereClause = 'WHERE 1=1';
+// دریافت تاریخچه کرال
+router.get('/crawl-history', async (req, res) => {
+  const { source, limit = 50 } = req.query;
+  const db = database.db;
+  
+  let query = `
+    SELECT ch.*, ns.name as source_name
+    FROM crawl_history ch
+    LEFT JOIN news_sources ns ON ch.source_id = ns.id
+  `;
   const params = [];
-    let paramIndex = 1;
+  
+  if (source) {
+    query += ' WHERE ch.source_id = $1';
+    params.push(source);
+  }
+  
+  query += ' ORDER BY ch.created_at DESC LIMIT $' + (params.length + 1);
+  params.push(parseInt(limit));
+  
+  try {
+    const rows = await db.query(query, params);
     
-    if (source_id) {
-      whereClause += ` AND source_id = $${paramIndex}`;
-      params.push(source_id);
-      paramIndex++;
-    }
-    
-    if (date_from) {
-      whereClause += ` AND created_at >= $${paramIndex}`;
-      params.push(date_from);
-      paramIndex++;
-    }
-    
-    if (date_to) {
-      whereClause += ` AND created_at <= $${paramIndex}`;
-      params.push(date_to);
-      paramIndex++;
-    }
-    
-    // آمار کلی
-    const totalQuery = `SELECT COUNT(*) as total FROM crawl_logs ${whereClause}`;
-    const totalResult = await connectionPool.query(totalQuery, params);
-    const totalLogs = parseInt(totalResult.rows[0].total);
-    
-    // آمار بر اساس وضعیت
-    const statusQuery = `
-      SELECT status, COUNT(*) as count 
-      FROM crawl_logs ${whereClause}
-      GROUP BY status
-    `;
-    const statusResult = await connectionPool.query(statusQuery, params);
-    const statusStats = statusResult.rows;
-    
-    // آمار بر اساس عملیات
-    const actionQuery = `
-      SELECT action, COUNT(*) as count 
-      FROM crawl_logs ${whereClause}
-      GROUP BY action
-    `;
-    const actionResult = await connectionPool.query(actionQuery, params);
-    const actionStats = actionResult.rows;
-    
-    // آمار امروز
-    const todayQuery = `
-      SELECT COUNT(*) as count 
-      FROM crawl_logs 
-      WHERE DATE(created_at) = CURRENT_DATE
-    `;
-    const todayResult = await connectionPool.query(todayQuery);
-    const todayLogs = parseInt(todayResult.rows[0].count);
-    
-    // آمار موفقیت‌ها
-    const successQuery = `
-      SELECT COUNT(*) as count 
-      FROM crawl_logs ${whereClause} AND status = 'success'
-    `;
-    const successResult = await connectionPool.query(successQuery, params);
-    const successLogs = parseInt(successResult.rows[0].count);
-    
-    // آمار خطاها
-    const errorQuery = `
-      SELECT COUNT(*) as count 
-      FROM crawl_logs ${whereClause} AND status = 'error'
-    `;
-    const errorResult = await connectionPool.query(errorQuery, params);
-    const errorLogs = parseInt(errorResult.rows[0].count);
+    // تبدیل زمان‌ها به تهران
+    const formattedHistory = rows.map(row => ({
+      ...row,
+      created_at: row.created_at ? moment(row.created_at).tz('Asia/Tehran').format('YYYY/MM/DD HH:mm:ss') : row.created_at,
+      crawl_date: row.crawl_date ? moment(row.crawl_date).tz('Asia/Tehran').format('YYYY/MM/DD HH:mm:ss') : row.crawl_date
+    }));
     
     res.json({
       success: true,
-      stats: {
-        total: totalLogs,
-        today: todayLogs,
-        success: successLogs,
-        error: errorLogs,
-        statusBreakdown: statusStats,
-        actionBreakdown: actionStats
-      }
+      history: formattedHistory
     });
   } catch (error) {
-    logger.error('خطا در دریافت آمار لاگ‌ها:', error);
-    res.status(500).json({
-      success: false,
-      message: 'خطا در دریافت آمار لاگ‌ها'
-    });
+    logger.error('خطا در دریافت تاریخچه:', error);
+    res.status(500).json({ success: false, message: 'خطای دیتابیس' });
   }
 });
 
-// حذف لاگ
-router.delete('/logs/:id', auth.verifyToken, async (req, res) => {
-  try {
-    const { id } = req.params;
-    
-    const result = await connectionPool.query(
-      'DELETE FROM crawl_logs WHERE id = $1',
-      [id]
-    );
-    
-    if (result.rowCount === 0) {
-      return res.status(404).json({
-        success: false,
-        message: 'لاگ یافت نشد'
-      });
-    }
-    
-    res.json({
-      success: true,
-      message: 'لاگ با موفقیت حذف شد'
-    });
-  } catch (error) {
-    logger.error('خطا در حذف لاگ:', error);
-    res.status(500).json({
-      success: false,
-      message: 'خطا در حذف لاگ'
-    });
-  }
-});
 
-// تلاش مجدد برای لاگ
-router.post('/logs/:id/retry', auth.verifyToken, async (req, res) => {
-  try {
-    const { id } = req.params;
-    
-    // دریافت اطلاعات لاگ
-    const logResult = await connectionPool.query(
-      'SELECT * FROM crawl_logs WHERE id = $1',
-      [id]
-    );
-    
-    if (logResult.rows.length === 0) {
-      return res.status(404).json({
-        success: false,
-        message: 'لاگ یافت نشد'
-      });
-    }
-    
-    const log = logResult.rows[0];
-    
-    // بررسی اینکه لاگ خطا داشته باشد
-    if (log.status !== 'error') {
-      return res.status(400).json({
-        success: false,
-        message: 'فقط لاگ‌های خطا قابل تلاش مجدد هستند'
-      });
-    }
-    
-    // اجرای مجدد عملیات کرال
-    const crawler = new UniversalCrawler(config.webDriver.defaultType);
-    
-    // یافتن منبع
-    const sourceResult = await connectionPool.query(
-      'SELECT * FROM news_sources WHERE id = $1',
-      [log.source_id]
-    );
-    
-    if (sourceResult.rows.length === 0) {
-      return res.status(404).json({
-        success: false,
-        message: 'منبع یافت نشد'
-      });
-    }
-    
-    const source = sourceResult.rows[0];
-    
-    // اجرای کرال مجدد
-    const crawlResult = await crawler.crawl(source);
-    
-    res.json({
-      success: true,
-      message: 'عملیات کرال مجدد شروع شد',
-      result: crawlResult
-    });
-  } catch (error) {
-    logger.error('خطا در تلاش مجدد لاگ:', error);
-    res.status(500).json({
-      success: false,
-      message: 'خطا در تلاش مجدد لاگ'
-    });
-  }
-});
-
-// پاک کردن همه لاگ‌ها
-router.delete('/logs', auth.verifyToken, async (req, res) => {
-  try {
-    const { days = 30 } = req.query;
-    
-    const cutoffDate = new Date();
-    cutoffDate.setDate(cutoffDate.getDate() - parseInt(days));
-    
-    const result = await connectionPool.query(
-      'DELETE FROM crawl_logs WHERE created_at < $1',
-      [cutoffDate.toISOString()]
-    );
-    
-    res.json({
-      success: true,
-      message: `${result.rowCount} لاگ قدیمی پاک شد`,
-      deletedCount: result.rowCount
-    });
-  } catch (error) {
-    logger.error('خطا در پاک کردن لاگ‌ها:', error);
-    res.status(500).json({
-      success: false,
-      message: 'خطا در پاک کردن لاگ‌ها'
-    });
-  }
-});
 
 // ==================== CLEANUP SCHEDULES ROUTES ====================
 

@@ -606,9 +606,6 @@
                                             <tr>
                                                 <th>نام</th>
                                                 <th>URL پایه</th>
-                                                <th>List Selector</th>
-                                                <th>Title Selector</th>
-                                                <th>Content Selector</th>
                                                 <th>نوع درایور</th>
                                                 <th>وضعیت</th>
                                                 <th>تاریخ ایجاد</th>
@@ -617,7 +614,7 @@
                                         </thead>
                                         <tbody id="sourcesTable">
                                             <tr>
-                                                <td colspan="9" class="text-center">در حال بارگذاری...</td>
+                                                <td colspan="6" class="text-center">در حال بارگذاری...</td>
                                             </tr>
                                         </tbody>
                                     </table>
@@ -1037,164 +1034,12 @@
                     <div id="logs" class="content-section">
                         <div class="d-flex justify-content-between align-items-center mb-4">
                             <h2><i class="fas fa-list-alt me-2"></i>لاگ‌ها</h2>
-                            <div class="d-flex gap-2">
-                                <button class="btn btn-outline-info" onclick="toggleLogFilters()">
-                                    <i class="fas fa-filter"></i> فیلترها
-                                </button>
-                                <button class="btn btn-outline-success" onclick="exportLogs()">
-                                    <i class="fas fa-download"></i> خروجی
-                                </button>
-                                <button class="btn btn-outline-warning" onclick="clearAllLogs()">
-                                    <i class="fas fa-trash"></i> پاک کردن همه
-                                </button>
-                                <button class="btn btn-outline-primary" onclick="loadLogs()">
-                                    <i class="fas fa-sync-alt"></i> به‌روزرسانی
-                                </button>
-                            </div>
+                            <button class="btn btn-outline-primary" onclick="loadLogs()">
+                                <i class="fas fa-sync-alt me-2"></i>به‌روزرسانی
+                            </button>
                         </div>
                         
-                        <!-- آمار لاگ‌ها -->
-                        <div class="row mb-4">
-                            <div class="col-md-3">
-                                <div class="card bg-primary text-white">
-                                    <div class="card-body text-center">
-                                        <h4 id="totalLogsCount">0</h4>
-                                        <p class="mb-0">کل لاگ‌ها</p>
-                                    </div>
-                                </div>
-                            </div>
-                            <div class="col-md-3">
-                                <div class="card bg-success text-white">
-                                    <div class="card-body text-center">
-                                        <h4 id="successLogsCount">0</h4>
-                                        <p class="mb-0">موفق</p>
-                                    </div>
-                                </div>
-                            </div>
-                            <div class="col-md-3">
-                                <div class="card bg-danger text-white">
-                                    <div class="card-body text-center">
-                                        <h4 id="errorLogsCount">0</h4>
-                                        <p class="mb-0">خطا</p>
-                                    </div>
-                                </div>
-                            </div>
-                            <div class="col-md-3">
-                                <div class="card bg-info text-white">
-                                    <div class="card-body text-center">
-                                        <h4 id="todayLogsCount">0</h4>
-                                        <p class="mb-0">امروز</p>
-                                    </div>
-                                </div>
-                            </div>
-                        </div>
-                        
-                        <!-- فیلترهای پیشرفته لاگ‌ها -->
-                        <div id="logFilters" class="card mb-4" style="display: none;">
-                            <div class="card-header">
-                                <h6 class="mb-0"><i class="fas fa-filter me-2"></i>فیلترهای پیشرفته لاگ‌ها</h6>
-                            </div>
-                            <div class="card-body">
-                                <div class="row">
-                                    <div class="col-md-3">
-                                        <div class="mb-3">
-                                            <label class="form-label">منبع</label>
-                                            <select class="form-select" id="logSourceFilter">
-                                                <option value="">همه منابع</option>
-                                            </select>
-                                        </div>
-                                    </div>
-                                    <div class="col-md-3">
-                                        <div class="mb-3">
-                                            <label class="form-label">وضعیت</label>
-                                            <select class="form-select" id="logStatusFilter">
-                                                <option value="">همه</option>
-                                                <option value="success">موفق</option>
-                                                <option value="error">خطا</option>
-                                                <option value="warning">هشدار</option>
-                                                <option value="info">اطلاعات</option>
-                                            </select>
-                                        </div>
-                                    </div>
-                                    <div class="col-md-3">
-                                        <div class="mb-3">
-                                            <label class="form-label">عملیات</label>
-                                            <select class="form-select" id="logActionFilter">
-                                                <option value="">همه عملیات</option>
-                                                <option value="crawl">کرال</option>
-                                                <option value="schedule">زمان‌بندی</option>
-                                                <option value="cleanup">پاک‌سازی</option>
-                                                <option value="system">سیستم</option>
-                                            </select>
-                                        </div>
-                                    </div>
-                                    <div class="col-md-3">
-                                        <div class="mb-3">
-                                            <label class="form-label">از تاریخ</label>
-                                            <input type="date" class="form-control" id="logDateFrom">
-                                        </div>
-                                    </div>
-                                </div>
-                                <div class="row">
-                                    <div class="col-md-3">
-                                        <div class="mb-3">
-                                            <label class="form-label">تا تاریخ</label>
-                                            <input type="date" class="form-control" id="logDateTo">
-                                        </div>
-                                    </div>
-                                    <div class="col-md-3">
-                                        <div class="mb-3">
-                                            <label class="form-label">جستجو در پیام</label>
-                                            <input type="text" class="form-control" id="logMessageSearch" placeholder="جستجو در پیام...">
-                                        </div>
-                                    </div>
-                                    <div class="col-md-3">
-                                        <div class="mb-3">
-                                            <label class="form-label">مرتب‌سازی</label>
-                                            <select class="form-select" id="logSortBy">
-                                                <option value="created_at_desc">جدیدترین</option>
-                                                <option value="created_at_asc">قدیمی‌ترین</option>
-                                                <option value="status">وضعیت</option>
-                                                <option value="source_name">منبع</option>
-                                            </select>
-                                        </div>
-                                    </div>
-                                    <div class="col-md-3">
-                                        <div class="mb-3">
-                                            <label class="form-label">&nbsp;</label>
-                                            <div class="d-flex gap-2">
-                                                <button class="btn btn-primary" onclick="applyLogFilters()">
-                                                    <i class="fas fa-search"></i> اعمال
-                                                </button>
-                                                <button class="btn btn-outline-secondary" onclick="clearLogFilters()">
-                                                    <i class="fas fa-times"></i> پاک کردن
-                                                </button>
-                                            </div>
-                                        </div>
-                                    </div>
-                                </div>
-                            </div>
-                        </div>
-                        
-                        <!-- جدول لاگ‌ها -->
                         <div class="card">
-                            <div class="card-header d-flex justify-content-between align-items-center">
-                                <h6 class="mb-0"><i class="fas fa-table me-2"></i>لیست لاگ‌ها</h6>
-                                <div class="d-flex gap-2">
-                                    <div class="form-check form-switch">
-                                        <input class="form-check-input" type="checkbox" id="autoRefreshLogs" checked>
-                                        <label class="form-check-label" for="autoRefreshLogs">
-                                            <small>به‌روزرسانی خودکار</small>
-                                        </label>
-                                    </div>
-                                    <select class="form-select form-select-sm" style="width: auto;" id="logPageSize">
-                                        <option value="10">10</option>
-                                        <option value="25" selected>25</option>
-                                        <option value="50">50</option>
-                                        <option value="100">100</option>
-                                    </select>
-                                </div>
-                            </div>
                             <div class="card-body">
                                 <div class="table-responsive">
                                     <table class="table table-hover">
@@ -1205,28 +1050,15 @@
                                                 <th>عملیات</th>
                                                 <th>وضعیت</th>
                                                 <th>آمار</th>
-                                                <th>مدت زمان</th>
                                                 <th>جزئیات</th>
-                                                <th>عملیات</th>
                                             </tr>
                                         </thead>
                                         <tbody id="logsTable">
                                             <tr>
-                                                <td colspan="8" class="text-center">در حال بارگذاری...</td>
+                                                <td colspan="6" class="text-center">در حال بارگذاری...</td>
                                             </tr>
                                         </tbody>
                                     </table>
-                                </div>
-                                <!-- Pagination -->
-                                <div class="d-flex justify-content-between align-items-center mt-3">
-                                    <div class="text-muted" id="logsInfo">
-                                        نمایش 0 تا 0 از 0 لاگ
-                                    </div>
-                                    <nav aria-label="صفحه‌بندی لاگ‌ها">
-                                        <ul class="pagination pagination-sm mb-0" id="logsPagination">
-                                            <!-- Pagination buttons will be generated here -->
-                                        </ul>
-                                    </nav>
                                 </div>
                             </div>
                         </div>
@@ -1666,12 +1498,7 @@
                         <div class="mb-3">
                             <label class="form-label">سلکتور لیست اخبار</label>
                             <input type="text" class="form-control" id="listSelector" placeholder="a[href*='/news/']">
-                            <div class="form-text">
-                                سلکتور CSS برای یافتن لینک‌های اخبار
-                                <button type="button" class="btn btn-sm btn-outline-info ms-2" onclick="showSelectorHelp()">
-                                    <i class="fas fa-question-circle"></i> راهنمای سلکتور
-                                </button>
-                            </div>
+                            <div class="form-text">سلکتور CSS برای یافتن لینک‌های اخبار</div>
                         </div>
                         <!-- سلکتورهای اصلی -->
                         <div class="row">
@@ -1740,12 +1567,7 @@
                                 <option value="playwright">Playwright (مدرن و قدرتمند)</option>
                                 <option value="cheerio">Cheerio (سبک و سریع)</option>
                             </select>
-                            <div class="form-text">
-                                <strong>Puppeteer:</strong> سریع‌تر، مناسب برای سایت‌های پیچیده<br>
-                                <strong>Selenium:</strong> پایدارتر، مناسب برای سایت‌های قدیمی<br>
-                                <strong>Playwright:</strong> مدرن و قدرتمند، بهترین عملکرد<br>
-                                <strong>Cheerio:</strong> سبک و سریع، مناسب برای سایت‌های ساده
-                            </div>
+                            <div class="form-text">Puppeteer/Playwright برای سایت‌های پیچیده، Selenium برای پایداری بالا، Cheerio برای سایت‌های ساده</div>
                         </div>
                     </form>
                 </div>
@@ -1758,12 +1580,12 @@
     </div>
 
     <!-- Modal: Edit Source -->
-    <div class="modal fade" id="editSourceModal" tabindex="-1">
+    <div class="modal fade" id="editSourceModal" tabindex="-1" role="dialog" aria-labelledby="editSourceModalLabel">
         <div class="modal-dialog modal-lg">
             <div class="modal-content">
                 <div class="modal-header">
-                    <h5 class="modal-title">ویرایش منبع خبری</h5>
-                    <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+                    <h5 class="modal-title" id="editSourceModalLabel">ویرایش منبع خبری</h5>
+                    <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="بستن"></button>
                 </div>
                 <div class="modal-body">
                     <form id="editSourceForm">
@@ -1854,12 +1676,7 @@
                                 <option value="playwright">Playwright (مدرن و قدرتمند)</option>
                                 <option value="cheerio">Cheerio (سبک و سریع)</option>
                             </select>
-                            <div class="form-text">
-                                <strong>Puppeteer:</strong> سریع‌تر، مناسب برای سایت‌های پیچیده<br>
-                                <strong>Selenium:</strong> پایدارتر، مناسب برای سایت‌های قدیمی<br>
-                                <strong>Playwright:</strong> مدرن و قدرتمند، بهترین عملکرد<br>
-                                <strong>Cheerio:</strong> سبک و سریع، مناسب برای سایت‌های ساده
-                            </div>
+                            <div class="form-text">Puppeteer/Playwright برای سایت‌های پیچیده، Selenium برای پایداری بالا، Cheerio برای سایت‌های ساده</div>
                         </div>
                         <div class="mb-3">
                             <div class="form-check">

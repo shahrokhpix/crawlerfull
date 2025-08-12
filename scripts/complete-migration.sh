@@ -53,7 +53,7 @@ check_postgresql() {
 check_database() {
     print_status "بررسی وجود دیتابیس..."
     
-    if psql -h localhost -U farsnews_user -d farsnews_crawler_spider_db -c "SELECT 1;" > /dev/null 2>&1; then
+    if psql -h localhost -U crawler_user -d farsnews_crawler_spider_db -c "SELECT 1;" > /dev/null 2>&1; then
         print_success "دیتابیس farsnews_crawler_spider_db موجود است"
         return 0
     else
@@ -67,13 +67,13 @@ create_database() {
     print_status "ایجاد دیتابیس PostgreSQL..."
     
     # Create user if not exists
-    psql -h localhost -U postgres -c "CREATE USER farsnews_user WITH PASSWORD 'farsnews123';" 2>/dev/null || true
+    psql -h localhost -U postgres -c "CREATE USER crawler_user WITH PASSWORD 'farsnews123';" 2>/dev/null || true
     
     # Create database
-    psql -h localhost -U postgres -c "CREATE DATABASE farsnews_crawler_spider_db OWNER farsnews_user;" 2>/dev/null || true
+    psql -h localhost -U postgres -c "CREATE DATABASE farsnews_crawler_spider_db OWNER crawler_user;" 2>/dev/null || true
     
     # Grant privileges
-    psql -h localhost -U postgres -c "GRANT ALL PRIVILEGES ON DATABASE farsnews_crawler_spider_db TO farsnews_user;" 2>/dev/null || true
+    psql -h localhost -U postgres -c "GRANT ALL PRIVILEGES ON DATABASE farsnews_crawler_spider_db TO crawler_user;" 2>/dev/null || true
     
     print_success "دیتابیس PostgreSQL ایجاد شد"
 }

@@ -1,5 +1,11 @@
--- PostgreSQL Database Initialization Script for Crawler
--- This script runs automatically when PostgreSQL container starts for the first time
+-- PostgreSQL Initial Setup Script for FarsNews Crawler
+-- This script runs when the PostgreSQL container starts for the first time
+
+-- Create database if not exists (already created by environment variables)
+-- CREATE DATABASE farsnews_crawler_spider_db;
+
+-- Connect to the database
+\c farsnews_crawler_spider_db;
 
 -- Create extensions
 CREATE EXTENSION IF NOT EXISTS "uuid-ossp";
@@ -157,7 +163,7 @@ CREATE INDEX IF NOT EXISTS idx_queue_status_priority ON queue_jobs(status, prior
 CREATE INDEX IF NOT EXISTS idx_crawl_logs_source_id ON crawl_logs(source_id);
 CREATE INDEX IF NOT EXISTS idx_operation_logs_source_id ON operation_logs(source_id);
 
--- Insert default news sources
+-- Insert initial data
 INSERT INTO news_sources (name, base_url, list_selector, title_selector, content_selector, link_selector)
 VALUES 
   ('فارس‌نیوز', 'https://www.farsnews.ir/showcase', 'a[href*="/news/"]', 'h1, .title', '.story, .content, .news-content, p', 'a'),
@@ -169,7 +175,17 @@ ON CONFLICT (name) DO NOTHING;
 -- Insert default admin user (password: admin123)
 INSERT INTO admin_users (username, password_hash, email)
 VALUES ('admin', '$2a$10$6Pf5M88A/ih16lsZQplsledbO/vIqoIc5QJ49RwLaCHkxqjgk/DQa', 'admin@crawler.local')
-ON CONFLICT (username) DO UPDATE SET password_hash = EXCLUDED.password_hash, email = EXCLUDED.email;
+ON CONFLICT (username) DO UPDATE SET
+    password_hash = EXCLUDED.password_hash,
+    email = EXCLUDED.email;
 
--- Update table statistics
-ANALYZE; 
+-- Grant permissions
+GRANT ALL PRIVILEGES ON ALL TABLES IN SCHEMA public TO crawler_user;
+GRANT ALL PRIVILEGES ON ALL SEQUENCES IN SCHEMA public TO crawler_user;
+GRANT ALL PRIVILEGES ON SCHEMA public TO crawler_user;
+
+-- Analyze tables for better query planning
+ANALYZE;
+
+-- Log completion
+\echo 'PostgreSQL setup completed successfully!' 

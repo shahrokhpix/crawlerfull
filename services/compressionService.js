@@ -2,11 +2,11 @@ const zlib = require('zlib');
 const fs = require('fs').promises;
 const path = require('path');
 const logger = require('../utils/logger');
-const Database = require('../config/database');
+const database = require('../config/database');
 
 class CompressionService {
   constructor() {
-    this.db = Database.db;
+    this.db = database.getDb();
     this.compressionLevel = 6; // متعادل بین سرعت و فشردگی
     this.batchSize = 100; // تعداد مقالات در هر دسته
     this.oldDataThreshold = 30; // روز
@@ -81,19 +81,22 @@ class CompressionService {
   // دریافت مقالات قدیمی فشرده نشده
   async getUncompressedOldArticles(cutoffTimestamp, limit) {
     try {
-      const result = await this.db.query(`
+      const query = `
         SELECT id, title, content, link, created_at
         FROM articles 
         WHERE created_at < $1 
-        AND (compressed IS NULL OR compressed = 0)
+        AND (compressed IS NULL OR compressed = false)
         AND content IS NOT NULL 
         AND LENGTH(content) > 1000
         ORDER BY created_at ASC
         LIMIT $2
-      `, [cutoffTimestamp, limit]);
-      return result || [];
-    } catch (err) {
-      throw err;
+      `;
+      
+      const result = await this.db.query(query, [cutoffTimestamp, limit]);
+      return result.rows || [];
+    } catch (error) {
+      logger.error('خطا در دریافت مقالات قدیمی:', error);
+      return [];
     }
   }
 
@@ -164,13 +167,16 @@ class CompressionService {
   // به‌روزرسانی مقاله فشرده شده
   async updateCompressedArticle(articleId, compressedContent) {
     try {
-      await this.db.query(`
+      const query = `
         UPDATE articles 
-        SET content = $1, compressed = 1, compressed_at = CURRENT_TIMESTAMP
+        SET content = $1, compressed = true, compressed_at = CURRENT_TIMESTAMP
         WHERE id = $2
-      `, [compressedContent, articleId]);
-    } catch (err) {
-      throw err;
+      `;
+      
+      await this.db.query(query, [compressedContent, articleId]);
+    } catch (error) {
+      logger.error('خطا در به‌روزرسانی مقاله فشرده شده:', error);
+      throw error;
     }
   }
 
@@ -265,105 +271,119 @@ class CompressionService {
 
   // حذف مقالات تکراری
   async removeDuplicateArticles() {
-    return new Promise((resolve, reject) => {
-      this.db.query(`
+    try {
+      const query = `
         DELETE FROM articles 
         WHERE id NOT IN (
           SELECT MIN(id) 
           FROM articles 
           GROUP BY hash
         )
-      `, (err) => {
-        if (err) reject(err);
-        else resolve();
-      });
-    });
+      `;
+      
+      await this.db.query(query);
+      logger.info('مقالات تکراری حذف شدند');
+    } catch (error) {
+      logger.error('خطا در حذف مقالات تکراری:', error);
+      throw error;
+    }
   }
 
   // حذف مقالات خالی
   async removeEmptyArticles() {
-    return new Promise((resolve, reject) => {
-      this.db.query(`
+    try {
+      const query = `
         DELETE FROM articles 
         WHERE (content IS NULL OR content = '' OR LENGTH(content) < 100)
         AND created_at < NOW() - INTERVAL '7 days'
-      `, (err) => {
-        if (err) reject(err);
-        else resolve();
-      });
-    });
+      `;
+      
+      await this.db.query(query);
+      logger.info('مقالات خالی حذف شدند');
+    } catch (error) {
+      logger.error('خطا در حذف مقالات خالی:', error);
+      throw error;
+    }
   }
 
-  // بهینه‌سازی دیتابیس PostgreSQL
+  // بهینه‌سازی دیتابیس
   async optimizeDatabase() {
-    return new Promise((resolve, reject) => {
-      this.db.query('VACUUM ANALYZE', (err) => {
-        if (err) reject(err);
-        else resolve();
-      });
-    });
+    try {
+      // PostgreSQL از VACUUM استفاده می‌کند
+      await this.db.query('VACUUM ANALYZE');
+      logger.info('دیتابیس بهینه‌سازی شد');
+    } catch (error) {
+      logger.error('خطا در بهینه‌سازی دیتابیس:', error);
+      throw error;
+    }
   }
 
   // دریافت محتوای فشرده شده
   async getCompressedContent(articleId) {
-    return new Promise((resolve, reject) => {
-      this.db.query(`
+    try {
+      const query = `
         SELECT content, compressed 
         FROM articles 
         WHERE id = $1
-      `, [articleId], async (err, result) => {
-        if (err) {
-          reject(err);
-        } else if (result.rows.length === 0) {
-          resolve(null);
-        } else {
-          const rows = result.rows || [];
-    const row = rows[0];
-          if (row.compressed) {
-            try {
-              const decompressed = await this.decompressText(row.content);
-              resolve(decompressed);
-            } catch (decompressError) {
-              reject(decompressError);
-            }
-          } else {
-            resolve(row.content);
-          }
-        }
-      });
-    });
+      `;
+      
+      const result = await this.db.query(query, [articleId]);
+      
+      if (result.rows.length === 0) {
+        return null;
+      }
+      
+      const row = result.rows[0];
+      
+      if (row.compressed) {
+        const decompressed = await this.decompressText(row.content);
+        return decompressed;
+      } else {
+        return row.content;
+      }
+    } catch (error) {
+      logger.error('خطا در دریافت محتوای فشرده شده:', error);
+      throw error;
+    }
   }
 
   // آمار فشردگی
   async getCompressionStats() {
-    return new Promise((resolve, reject) => {
-      this.db.query(`
+    try {
+      const query = `
         SELECT 
-          COUNT(*) as total_articles,
-          SUM(CASE WHEN compressed = 1 THEN 1 ELSE 0 END) as compressed_articles,
-          AVG(CASE WHEN compressed = 1 THEN LENGTH(content) ELSE NULL END) as avg_compressed_size,
-          AVG(CASE WHEN compressed = 0 OR compressed IS NULL THEN LENGTH(content) ELSE NULL END) as avg_uncompressed_size
+          COUNT(*)::int as total_articles,
+          SUM(CASE WHEN compressed = true THEN 1 ELSE 0 END)::int as compressed_articles,
+          AVG(CASE WHEN compressed = true THEN LENGTH(content) ELSE NULL END)::numeric as avg_compressed_size,
+          AVG(CASE WHEN compressed = false OR compressed IS NULL THEN LENGTH(content) ELSE NULL END)::numeric as avg_uncompressed_size
         FROM articles 
         WHERE content IS NOT NULL
-      `, (err, result) => {
-        if (err) {
-          reject(err);
-        } else {
-          const stats = result.rows[0] || {};
-          const compressionRatio = stats.avg_uncompressed_size && stats.avg_compressed_size 
-            ? ((stats.avg_uncompressed_size - stats.avg_compressed_size) / stats.avg_uncompressed_size * 100)
-            : 0;
-          
-          resolve({
-            totalArticles: stats.total_articles || 0,
-            compressedArticles: stats.compressed_articles || 0,
-            compressionRatio: Math.round(compressionRatio * 100) / 100,
-            avgCompressedSize: Math.round(stats.avg_compressed_size || 0),
-            avgUncompressedSize: Math.round(stats.avg_uncompressed_size || 0)
-          });
-        }
-      });
-    });
+      `;
+      
+      const result = await this.db.query(query);
+      const stats = result.rows[0] || {};
+      
+      const compressionRatio = stats.avg_uncompressed_size && stats.avg_compressed_size 
+        ? ((stats.avg_uncompressed_size - stats.avg_compressed_size) / stats.avg_uncompressed_size * 100)
+        : 0;
+      
+      return {
+        totalArticles: stats.total_articles || 0,
+        compressedArticles: stats.compressed_articles || 0,
+        compressionRatio: Math.round(compressionRatio * 100) / 100,
+        avgCompressedSize: Math.round(stats.avg_compressed_size || 0),
+        avgUncompressedSize: Math.round(stats.avg_uncompressed_size || 0)
+      };
+    } catch (error) {
+      logger.error('خطا در دریافت آمار فشردگی:', error);
+      return {
+        totalArticles: 0,
+        compressedArticles: 0,
+        compressionRatio: 0,
+        avgCompressedSize: 0,
+        avgUncompressedSize: 0
+      };
+    }
   }
 
   // تابع کمکی برای sleep

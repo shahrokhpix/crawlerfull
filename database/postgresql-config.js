@@ -2,9 +2,9 @@ const { Pool } = require('pg');
 
 // PostgreSQL Configuration
 const pool = new Pool({
-  user: 'farsnews_user',
+  user: 'crawler_user',
   host: 'localhost',
-  database: 'crawler_db',
+  database: 'farsnews_crawler_spider_db',
   password: 'farsnews123',
   port: 5432,
   max: 20, // Maximum number of clients in the pool

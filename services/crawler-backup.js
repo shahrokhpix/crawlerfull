@@ -41,6 +41,58 @@ class UniversalCrawler {
     // Cache manager setup
     this.setupCacheManager();
   }
+
+  // تابع اعتبارسنجی و پاکسازی selector
+  sanitizeSelector(selector) {
+    if (!selector || typeof selector !== 'string') {
+      return '';
+    }
+    
+    // حذف کاراکترهای نامعتبر و اضافی
+    let cleaned = selector.trim()
+      .replace(/\s+/g, ' ') // حذف فاصله‌های اضافی
+      .replace(/\.\s+/g, '.') // حذف فاصله بعد از نقطه
+      .replace(/\s+\./g, '.') // حذف فاصله قبل از نقطه
+      .replace(/\.+/g, '.') // حذف نقطه‌های اضافی
+      .replace(/,\s*,/g, ',') // حذف کاما های اضافی
+      .replace(/,\s*$/g, '') // حذف کاما در انتها
+      .replace(/^\s*,/g, ''); // حذف کاما در ابتدا
+    
+    // اگر selector خالی شد، بازگرداندن string خالی
+    if (!cleaned) {
+      return '';
+    }
+    
+    // تست اعتبار selector با try-catch ساده
+    try {
+      // تست با regex برای شناسایی selector های نامعتبر
+      if (cleaned.includes('..') || cleaned.includes(' .') || cleaned.includes('. ')) {
+        throw new Error('Invalid selector format');
+      }
+      return cleaned;
+    } catch (error) {
+      logger.warn(`Selector نامعتبر حذف شد: ${selector} - خطا: ${error.message}`);
+      return '';
+    }
+  }
+
+  // تابع پاکسازی تمام selectors
+  sanitizeSelectors(selectors) {
+    const sanitized = {};
+    
+    Object.keys(selectors).forEach(key => {
+      if (typeof selectors[key] === 'string') {
+        const cleaned = this.sanitizeSelector(selectors[key]);
+        if (cleaned) {
+          sanitized[key] = cleaned;
+        }
+      } else {
+        sanitized[key] = selectors[key];
+      }
+    });
+    
+    return sanitized;
+  }
   
   // تنظیم rate limiter
   setupRateLimiter() {
@@ -94,38 +146,85 @@ class UniversalCrawler {
 
   // تابع کمکی برای evaluate که با همه درایورها کار می‌کند
   async safeEvaluate(page, script, ...args) {
-    try {
-      if (this.webDriverManager.driverType === 'puppeteer') {
-        return await page.evaluate(script, ...args);
-      } else if (this.webDriverManager.driverType === 'playwright') {
-        // Playwright has different evaluate API
-        if (args.length === 0) {
-          return await page.evaluate(script);
-        } else if (args.length === 1) {
-          return await page.evaluate(script, args[0]);
-        } else {
-          // For multiple arguments, pass as object
-          const argsObj = {};
-          args.forEach((arg, index) => {
-            argsObj[`arg${index}`] = arg;
-          });
-          return await page.evaluate((argsObj, script) => {
-            const args = Object.values(argsObj);
-            return script(...args);
-          }, argsObj, script);
+    const maxRetries = 3;
+    let lastError = null;
+
+    for (let attempt = 1; attempt <= maxRetries; attempt++) {
+      try {
+        // Check if page is still valid before evaluate
+        if (this.webDriverManager.driverType === 'puppeteer') {
+          // Check if page is closed or detached
+          if (page.isClosed && page.isClosed()) {
+            logger.warn('صفحه puppeteer بسته شده است');
+            return null;
+          }
+          
+          // Check if main frame is available
+          if (!page.mainFrame()) {
+            logger.warn('Main frame در دسترس نیست');
+            return null;
+          }
+
+          return await page.evaluate(script, ...args);
+        } else if (this.webDriverManager.driverType === 'playwright') {
+          // Check if page is closed
+          if (page.isClosed()) {
+            logger.warn('صفحه playwright بسته شده است');
+            return null;
+          }
+
+          // Playwright has different evaluate API
+          if (args.length === 0) {
+            return await page.evaluate(script);
+          } else if (args.length === 1) {
+            return await page.evaluate(script, args[0]);
+          } else {
+            // For multiple arguments, pass as object
+            const argsObj = {};
+            args.forEach((arg, index) => {
+              argsObj[`arg${index}`] = arg;
+            });
+            return await page.evaluate((argsObj, script) => {
+              const args = Object.values(argsObj);
+              return script(...args);
+            }, argsObj, script);
+          }
+        } else if (this.webDriverManager.driverType === 'selenium') {
+          // برای selenium از executeScript استفاده می‌کنیم
+          const scriptString = `return (${script.toString()})(${args.map(arg => JSON.stringify(arg)).join(', ')})`;
+          return await page.executeScript(scriptString);
+        } else if (this.webDriverManager.driverType === 'cheerio') {
+          // برای cheerio از $ استفاده می‌کنیم
+          return this.executeCheerioScript(page, script, ...args);
         }
-      } else if (this.webDriverManager.driverType === 'selenium') {
-        // برای selenium از executeScript استفاده می‌کنیم
-        const scriptString = `return (${script.toString()})(${args.map(arg => JSON.stringify(arg)).join(', ')})`;
-        return await page.executeScript(scriptString);
-      } else if (this.webDriverManager.driverType === 'cheerio') {
-        // برای cheerio از $ استفاده می‌کنیم
-        return this.executeCheerioScript(page, script, ...args);
+      } catch (error) {
+        lastError = error;
+        
+        // Check if it's a detached frame error
+        if (error.message.includes('detached Frame') || 
+            error.message.includes('Target closed') ||
+            error.message.includes('Session closed')) {
+          
+          logger.warn(`تلاش ${attempt}/${maxRetries}: Frame detached error - تلاش مجدد...`);
+          
+          // Wait before retry
+          if (attempt < maxRetries) {
+            await new Promise(resolve => setTimeout(resolve, 1000 * attempt));
+            continue;
+          }
+        }
+        
+        // For other errors, log and return null immediately
+        logger.warn(`خطا در evaluate برای ${this.webDriverManager.driverType} (تلاش ${attempt}):`, error.message);
+        
+        if (attempt === maxRetries) {
+          break;
+        }
       }
-    } catch (error) {
-      logger.warn(`خطا در evaluate برای ${this.webDriverManager.driverType}:`, error.message);
-      return null;
     }
+
+    logger.error(`تمام تلاش‌ها برای evaluate ناموفق - آخرین خطا:`, lastError?.message);
+    return null;
   }
 
   // Execute script for Cheerio
@@ -381,7 +480,7 @@ class UniversalCrawler {
 
   async saveArticle(sourceId, article) {
     try {
-      const db = database.db;
+      const db = database.getDb();
       const hash = this.generateHash(article.title, article.link);
 
       // Validate article content
@@ -648,24 +747,16 @@ class UniversalCrawler {
           for (const titleSelector of titleSelectors) {
             if (!titleSelector) continue;
             
-            const isXPath = typeof titleSelector === 'string' && (titleSelector.trim().startsWith('/') || titleSelector.trim().startsWith('xpath='));
-            title = await this.safeEvaluate(page, (selector, isXPathSel) => {
+            title = await this.safeEvaluate(page, (selector) => {
               console.log('جستجوی سلکتور عنوان:', selector);
-              let node = null;
-              if (isXPathSel) {
-                const xp = selector.startsWith('xpath=') ? selector.slice(6) : selector;
-                const result = document.evaluate(xp, document, null, XPathResult.FIRST_ORDERED_NODE_TYPE, null);
-                node = result.singleNodeValue;
-              } else {
-                node = document.querySelector(selector);
-              }
-              if (node) {
-                const text = (node.textContent || '').trim();
+              const element = document.querySelector(selector);
+              if (element) {
+                const text = element.textContent.trim();
                 console.log('عنوان یافت شد:', text);
                 return text;
               }
               return '';
-            }, titleSelector, isXPath);
+            }, titleSelector);
             
             if (title && title.trim().length > 0) {
               logger.info(`عنوان با سلکتور ${titleSelector} یافت شد: ${title.substring(0, 50)}...`);
@@ -739,22 +830,14 @@ class UniversalCrawler {
           for (const contentSelector of contentSelectors) {
             if (!contentSelector) continue;
             
-            const isXPath = typeof contentSelector === 'string' && (contentSelector.trim().startsWith('/') || contentSelector.trim().startsWith('xpath='));
-            content = await this.safeEvaluate(page, (selector, isXPathSel) => {
+            content = await this.safeEvaluate(page, (selector) => {
               console.log('جستجوی سلکتور محتوا:', selector);
-              let nodes = [];
-              if (isXPathSel) {
-                const xp = selector.startsWith('xpath=') ? selector.slice(6) : selector;
-                const snap = document.evaluate(xp, document, null, XPathResult.ORDERED_NODE_SNAPSHOT_TYPE, null);
-                for (let i = 0; i < snap.snapshotLength; i++) nodes.push(snap.snapshotItem(i));
-              } else {
-                nodes = Array.from(document.querySelectorAll(selector));
-              }
-              console.log('تعداد عناصر محتوا یافت شده:', nodes.length);
-              const txt = nodes.map(el => (el.textContent || '').trim()).join('\n');
-              console.log('طول محتوای استخراج شده:', txt.length);
-              return txt;
-            }, contentSelector, isXPath) || '';
+              const elements = document.querySelectorAll(selector);
+              console.log('تعداد عناصر محتوا یافت شده:', elements.length);
+              const content = Array.from(elements).map(el => el.textContent.trim()).join('\n');
+              console.log('طول محتوای استخراج شده:', content.length);
+              return content;
+            }, contentSelector) || '';
             
             if (content && content.trim().length > 50) { // محتوا باید حداقل 50 کاراکتر باشد
               logger.info(`محتوا با سلکتور ${contentSelector} یافت شد: ${content.substring(0, 50)}...`);
@@ -787,49 +870,20 @@ class UniversalCrawler {
         internalLinks = await this.executeCheerioScript(page, scriptStr) || [];
       } else {
         internalLinks = await this.safeEvaluate(page, (baseUrl, linkSelector) => {
-          const unique = new Set();
-          const out = [];
-          const push = (el) => {
-            if (!el) return;
-            const href = el.href || el.getAttribute && el.getAttribute('href');
-            if (!href) return;
-            if (href.includes(baseUrl) && !href.includes('#') && !href.toLowerCase().startsWith('javascript:')) {
-              const url = href;
-              if (!unique.has(url)) {
-                unique.add(url);
-                out.push({ url, text: (el.textContent || '').trim() });
-              }
-            }
-          };
-          const collectFromNode = (node) => {
-            if (!node) return;
-            if (node.tagName && node.tagName.toLowerCase() === 'a') {
-              push(node);
-            }
-            if (node.querySelectorAll) {
-              node.querySelectorAll('a').forEach(a => push(a));
-            }
-          };
+          const links = [];
+          const elements = document.querySelectorAll(linkSelector || 'a');
           
-          const isXPath = typeof linkSelector === 'string' && (linkSelector.trim().startsWith('/') || linkSelector.trim().startsWith('xpath='));
-          if (linkSelector) {
-            if (isXPath) {
-              const xp = linkSelector.startsWith('xpath=') ? linkSelector.slice(6) : linkSelector;
-              const snap = document.evaluate(xp, document, null, XPathResult.ORDERED_NODE_SNAPSHOT_TYPE, null);
-              for (let i = 0; i < snap.snapshotLength; i++) {
-                collectFromNode(snap.snapshotItem(i));
-              }
-            } else {
-              document.querySelectorAll(linkSelector).forEach(el => collectFromNode(el));
+          elements.forEach(el => {
+            const href = el.href;
+            if (href && href.includes(baseUrl) && !href.includes('#') && !href.includes('javascript:')) {
+              links.push({
+                url: href,
+                text: el.textContent.trim()
+              });
             }
-          }
+          });
           
-          // Fallback عمومی اگر چیزی پیدا نشد
-          if (out.length === 0) {
-            document.querySelectorAll('a').forEach(a => push(a));
-          }
-          
-          return out.slice(0, 5);
+          return links.slice(0, 5); // حداکثر 5 لینک
         }, new URL(url).origin, selectors.link_selector) || [];
       }
       
@@ -938,7 +992,7 @@ class UniversalCrawler {
       limit = 10,                    // تعداد اخبار (از ورودی کاربر)
       crawlDepth = 0,               // عمق کرال (از ورودی کاربر)
       fullContent = true,           // استخراج محتوای کامل (از ورودی کاربر)
-      waitTime = 9000,              // زمان انتظار (از ورودی کاربر)
+      waitTime = 3000,              // زمان انتظار (از ورودی کاربر)
       timeout = 180000,             // timeout کلی (از ورودی کاربر)
       navigationTimeout = 120000,   // timeout ناوبری (از ورودی کاربر)
       followLinks = true            // دنبال کردن لینک‌ها (از ورودی کاربر)
@@ -960,6 +1014,14 @@ class UniversalCrawler {
       if (!source) {
         throw new Error(`منبع خبری با شناسه ${sourceId} یافت نشد`);
       }
+
+      // پاکسازی و اعتبارسنجی selectors - موقتاً غیرفعال
+      logger.info('Selectors از دیتابیس:', {
+        list_selector: source.list_selector,
+        title_selector: source.title_selector,
+        content_selector: source.content_selector,
+        link_selector: source.link_selector
+      });
       
       logger.info(`شروع کرال منبع: ${source.name}`);
       
@@ -1048,111 +1110,38 @@ class UniversalCrawler {
       let articleLinks = [];
       
       if (this.webDriverManager.driverType === 'cheerio') {
-        // برای Cheerio از اسکریپت شامل fallback استفاده می‌کنیم
-        const baseOrigin = new URL(source.base_url).origin;
+        // برای Cheerio از executeCheerioScript استفاده می‌کنیم
         const scriptStr = `
           const links = [];
-          // تلاش 1: سلکتور DB همان‌طور که هست
           $("${source.list_selector}").each((i, el) => {
             const href = $(el).attr('href');
             if (href && href.trim() && href.length > 1 && (href.startsWith('http') || href.startsWith('/'))) {
-              const fullUrl = href.startsWith('/') ? '${baseOrigin}' + href : href;
+              const fullUrl = href.startsWith('/') ? "${new URL(source.base_url).origin}" + href : href;
+              if (!links.includes(fullUrl)) {
+                links.push(fullUrl);
+              }
+            }
+          });
+          return links.slice(0, ${limit});
+        `;
+        articleLinks = await this.executeCheerioScript(page, scriptStr, source.list_selector, new URL(source.base_url).origin, limit) || [];
+      } else {
+        // برای سایر درایورها از safeEvaluate استفاده می‌کنیم
+        articleLinks = await this.safeEvaluate(page, (selector, baseUrl, limit) => {
+          const links = [];
+          const elements = document.querySelectorAll(selector);
+          
+          elements.forEach(el => {
+            const href = el.getAttribute ? el.getAttribute('href') : el.href;
+            if (href && href.trim() && href.length > 1 && (href.startsWith('http') || href.startsWith('/'))) {
+              const fullUrl = href.startsWith('/') ? baseUrl + href : href;
               if (!links.includes(fullUrl)) {
                 links.push(fullUrl);
               }
             }
           });
           
-          // تلاش 2: اگر نتیجه‌ای نبود و سلکتور کانتینر باشد، لینک‌های داخل آن را بگیر
-          if (links.length === 0) {
-            $("${source.list_selector} a").each((i, el) => {
-              const href = $(el).attr('href');
-              if (href && href.trim() && href.length > 1 && (href.startsWith('http') || href.startsWith('/'))) {
-                const fullUrl = href.startsWith('/') ? '${baseOrigin}' + href : href;
-                if (!links.includes(fullUrl)) {
-                  links.push(fullUrl);
-                }
-              }
-            });
-          }
-          
-          // تلاش 3: fallback عمومی برای سایت‌های خبری
-          if (links.length === 0) {
-            $('a[href*="/news/"]').each((i, el) => {
-              const href = $(el).attr('href');
-              if (href && href.trim() && href.length > 1) {
-                const fullUrl = href.startsWith('/') ? '${baseOrigin}' + href : href;
-                if (!links.includes(fullUrl)) {
-                  links.push(fullUrl);
-                }
-              }
-            });
-          }
-          
-          // تلاش 4: الگوی رایج دیگر
-          if (links.length === 0) {
-            $('a[href^="/news/"]').each((i, el) => {
-              const href = $(el).attr('href');
-              if (href && href.trim() && href.length > 1) {
-                const fullUrl = href.startsWith('/') ? '${baseOrigin}' + href : href;
-                if (!links.includes(fullUrl)) {
-                  links.push(fullUrl);
-                }
-              }
-            });
-          }
-          
-          // حذف duplicate و محدودسازی
-          return Array.from(new Set(links)).slice(0, ${limit});
-        `;
-        articleLinks = await this.executeCheerioScript(page, scriptStr) || [];
-      } else {
-        // برای سایر درایورها از safeEvaluate با fallback استفاده می‌کنیم
-        articleLinks = await this.safeEvaluate(page, (selector, baseUrl, limit) => {
-          const baseOrigin = baseUrl;
-          const unique = new Set();
-          const pushHref = (href) => {
-            if (!href) return;
-            const clean = href.trim();
-            if (!clean || clean.length <= 1) return;
-            const fullUrl = clean.startsWith('/') ? (baseOrigin + clean) : clean;
-            if (!unique.has(fullUrl)) unique.add(fullUrl);
-          };
-          
-          const trySelector = (sel) => {
-            if (!sel) return;
-            const isXPathSel = typeof sel === 'string' && (sel.trim().startsWith('/') || sel.trim().startsWith('xpath='));
-            if (isXPathSel) {
-              const xp = sel.startsWith('xpath=') ? sel.slice(6) : sel;
-              const snap = document.evaluate(xp, document, null, XPathResult.ORDERED_NODE_SNAPSHOT_TYPE, null);
-              for (let i = 0; i < snap.snapshotLength; i++) {
-                const el = snap.snapshotItem(i);
-                if (!el) continue;
-                if (el.tagName && el.tagName.toLowerCase() === 'a') {
-                  pushHref(el.getAttribute('href') || el.href || '');
-                } else {
-                  el.querySelectorAll && el.querySelectorAll('a').forEach(a => pushHref(a.getAttribute('href') || a.href || ''));
-                }
-              }
-            } else {
-              const elements = document.querySelectorAll(sel);
-              elements.forEach(el => {
-                if (el.tagName && el.tagName.toLowerCase() === 'a') {
-                  pushHref(el.getAttribute('href') || el.href);
-                } else {
-                  el.querySelectorAll('a').forEach(a => pushHref(a.getAttribute('href') || a.href));
-                }
-              });
-            }
-          };
-          
-          // تلاش‌ها به ترتیب
-          trySelector(selector);
-          if (unique.size === 0) trySelector(`${selector} a`);
-          if (unique.size === 0) trySelector('a[href*="/news/"]');
-          if (unique.size === 0) trySelector('a[href^="/news/"]');
-          
-          return Array.from(unique).slice(0, limit);
+          return links.slice(0, limit);
         }, source.list_selector, new URL(source.base_url).origin, limit) || [];
       }
       
@@ -1337,7 +1326,7 @@ class UniversalCrawler {
 
   async getSource(sourceId) {
     try {
-      const db = database.db;
+      const db = database.getDb();
       const query = 'SELECT * FROM news_sources WHERE id = $1 AND active = true';
       
       const result = await db.query(query, [sourceId]);
@@ -1390,7 +1379,7 @@ class UniversalCrawler {
 
   async logCrawlHistory(sourceId, stats) {
     try {
-      const db = database.db;
+      const db = database.getDb();
       const query = `
         INSERT INTO crawl_history 
         (source_id, total_found, total_processed, new_articles, crawl_depth, duration_ms)
@@ -1418,21 +1407,16 @@ class UniversalCrawler {
   // تست سلکتور - نسخه حرفه‌ای با مدیریت خطای پیشرفته
   async testSelector(url, selector, type = 'list', driverType = 'cheerio', options = {}) {
     const {
-      waitTime = 3000,              // زمان انتظار (میلی‌ثانیه)
-      timeout = 20000,              // timeout ناوبری (میلی‌ثانیه)
-      defaultTimeout = 15000,       // timeout پیش‌فرض (میلی‌ثانیه)
-      readyStateTimeout = 5000      // timeout برای readyState (میلی‌ثانیه)
+      waitTime = 3000,              // زمان انتظار (از ورودی کاربر)
+      timeout = 20000,              // timeout ناوبری (از ورودی کاربر)
+      defaultTimeout = 15000,       // timeout پیش‌فرض (از ورودی کاربر)
+      readyStateTimeout = 5000      // timeout برای readyState (از ورودی کاربر)
     } = options;
     let browser = null;
     let page = null;
     const startTime = Date.now();
     
     try {
-      // اگر XPath است و کاربر cheerio داده، خودکار به Playwright تغییر دهیم
-      const looksLikeXPath = typeof selector === 'string' && (selector.trim().startsWith('/') || selector.trim().startsWith('xpath='));
-      if (driverType === 'cheerio' && looksLikeXPath) {
-        driverType = 'playwright';
-      }
       // اعتبارسنجی تنظیمات timeout
       if (timeout < 5000 || timeout > 120000) {
         throw new Error('Timeout باید بین 5000 تا 120000 میلی‌ثانیه باشد');

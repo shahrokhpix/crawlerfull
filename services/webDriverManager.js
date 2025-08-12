@@ -1,5 +1,6 @@
 const puppeteer = require('puppeteer');
 const { Launcher } = require('chrome-launcher');
+const fs = require('fs');
 const OptimizedCheerio = require('./cheerioOptimized');
 const OptimizedPlaywright = require('./playwrightOptimized');
 const { getOptimalConfig } = require('../config/cheerioConfig');
@@ -41,55 +42,102 @@ class WebDriverManager {
 
   // Initialize browser/driver based on type
   async init() {
-    if (this.driverType === 'puppeteer') {
-      return await this.initPuppeteer();
-    } else if (this.driverType === 'selenium') {
-      return await this.initSelenium();
-    } else if (this.driverType === 'playwright') {
-      return await this.initPlaywright();
-    } else if (this.driverType === 'cheerio') {
-      return await this.initCheerio();
-    } else {
-      throw new Error(`Unsupported driver type: ${this.driverType}`);
+    logger.info(`🔧 راه‌اندازی وب درایور: ${this.driverType}`);
+    
+    try {
+      let result;
+      if (this.driverType === 'puppeteer') {
+        result = await this.initPuppeteer();
+      } else if (this.driverType === 'selenium') {
+        result = await this.initSelenium();
+      } else if (this.driverType === 'playwright') {
+        result = await this.initPlaywright();
+      } else if (this.driverType === 'cheerio') {
+        result = await this.initCheerio();
+      } else {
+        throw new Error(`Unsupported driver type: ${this.driverType}`);
+      }
+      
+      logger.info(`✅ وب درایور ${this.driverType} با موفقیت راه‌اندازی شد`);
+      return result;
+    } catch (error) {
+      logger.error(`❌ خطا در راه‌اندازی وب درایور ${this.driverType}: ${error.message}`);
+      throw error;
     }
+  }
+
+  // Resolve Chromium executable path with sensible fallbacks
+  resolveChromiumPath() {
+    const candidates = [];
+    if (process.env.PUPPETEER_EXECUTABLE_PATH) {
+      candidates.push(process.env.PUPPETEER_EXECUTABLE_PATH);
+    }
+    try {
+      const installations = typeof Launcher.getInstallations === 'function' ? Launcher.getInstallations() : [];
+      if (Array.isArray(installations)) {
+        candidates.push(...installations);
+      }
+    } catch (_) {}
+    candidates.push('/usr/bin/chromium', '/usr/bin/chromium-browser', '/usr/bin/google-chrome', '/usr/bin/google-chrome-stable');
+
+    for (const p of candidates) {
+      try {
+        if (p && fs.existsSync(p)) return p;
+      } catch (_) {}
+    }
+    // Return first candidate even if not found to let puppeteer throw meaningful error
+    return candidates[0] || null;
   }
 
   // Initialize Puppeteer
   async initPuppeteer() {
+    logger.info(`🌐 راه‌اندازی Puppeteer browser`);
+    
     if (!this.browser || !this.browser.isConnected()) {
+      logger.info(`🔄 بستن browser قبلی و راه‌اندازی مجدد`);
       await this.closePuppeteer();
       
-      const chromePath = Launcher.getInstallations()[0];
-      this.browser = await puppeteer.launch({
-        executablePath: chromePath,
-        headless: true,
-        args: [
-          '--no-sandbox',
-          '--disable-setuid-sandbox',
-          '--disable-dev-shm-usage',
-          '--disable-accelerated-2d-canvas',
-          '--no-first-run',
-          '--no-zygote',
-          '--disable-gpu',
-          '--lang=fa-IR',
-          '--accept-lang=fa-IR,fa,en-US,en',
-          '--force-device-scale-factor=1',
-          '--disable-blink-features=AutomationControlled',
-          '--disable-web-security',
-          '--disable-features=VizDisplayCompositor',
-          '--disable-background-timer-throttling',
-          '--disable-backgrounding-occluded-windows',
-          '--disable-renderer-backgrounding',
-          '--disable-field-trial-config',
-          '--disable-ipc-flooding-protection',
-          '--memory-pressure-off',
-          '--max_old_space_size=512'
-        ],
-        protocolTimeout: 300000 // 5 minutes
-      });
+      const chromePath = this.resolveChromiumPath();
+      logger.info(`🔧 استفاده از Chrome path: ${chromePath || 'نامشخص'}`);
       
-      logger.info('Puppeteer browser initialized successfully');
+      try {
+        this.browser = await puppeteer.launch({
+          executablePath: chromePath || undefined,
+          headless: true,
+          args: [
+            '--no-sandbox',
+            '--disable-setuid-sandbox',
+            '--disable-dev-shm-usage',
+            '--disable-accelerated-2d-canvas',
+            '--no-first-run',
+            '--no-zygote',
+            '--disable-gpu',
+            '--lang=fa-IR',
+            '--accept-lang=fa-IR,fa,en-US,en',
+            '--force-device-scale-factor=1',
+            '--disable-blink-features=AutomationControlled',
+            '--disable-web-security',
+            '--disable-features=VizDisplayCompositor',
+            '--disable-background-timer-throttling',
+            '--disable-backgrounding-occluded-windows',
+            '--disable-renderer-backgrounding',
+            '--disable-field-trial-config',
+            '--disable-ipc-flooding-protection',
+            '--memory-pressure-off',
+            '--max_old_space_size=512'
+          ],
+          protocolTimeout: 300000 // 5 minutes
+        });
+        
+        logger.info(`✅ Puppeteer browser با موفقیت راه‌اندازی شد`);
+      } catch (error) {
+        logger.error(`❌ خطا در راه‌اندازی Puppeteer: ${error.message}`);
+        throw error;
+      }
+    } else {
+      logger.info(`✅ Puppeteer browser قبلاً متصل است`);
     }
+    
     return this.browser;
   }
 
@@ -110,10 +158,21 @@ class WebDriverManager {
         '--accept-lang=fa-IR,fa,en-US,en',
         '--headless'
       );
+      // Explicitly set Chromium binary if available
+      const chromiumBinary = this.resolveChromiumPath();
+      if (typeof options.setChromeBinaryPath === 'function' && chromiumBinary) {
+        options.setChromeBinaryPath(chromiumBinary);
+        logger.info(`Selenium Chrome binary set to: ${chromiumBinary}`);
+      }
+
+      // Explicit Chromedriver path to avoid selenium-manager download issues
+      const chromedriverPath = process.env.CHROMEDRIVER_PATH || '/usr/bin/chromedriver';
+      const service = new chrome.ServiceBuilder(chromedriverPath);
 
       this.driver = await new webdriver.Builder()
         .forBrowser('chrome')
         .setChromeOptions(options)
+        .setChromeService(service)
         .build();
         
       logger.info('Selenium WebDriver initialized successfully');
@@ -151,13 +210,16 @@ class WebDriverManager {
 
   // Create new page/tab
   async newPage() {
+    logger.info(`📄 ایجاد صفحه جدید با درایور: ${this.driverType}`);
     this.lastActivity = Date.now();
     
     try {
       if (this.driverType === 'puppeteer') {
+        logger.info(`🌐 ایجاد صفحه Puppeteer`);
+        
         // بررسی اتصال browser قبل از ایجاد صفحه جدید
         if (!this.browser || !this.browser.isConnected()) {
-          logger.warn('Browser disconnected، تلاش برای راه‌اندازی مجدد...');
+          logger.warn(`⚠️ Browser disconnected، تلاش برای راه‌اندازی مجدد...`);
           await this.forceCloseWebDriver();
           await this.init();
         }
@@ -165,24 +227,20 @@ class WebDriverManager {
         const browser = await this.init();
         const page = await browser.newPage();
         
-        // Configure page settings to prevent detached frame errors
-        await page.setDefaultTimeout(30000);
-        await page.setDefaultNavigationTimeout(30000);
-        
-        // Set page lifecycle event listeners
+        // اضافه کردن event listener برای بسته شدن صفحه
         page.on('close', () => {
+          logger.info(`🔒 صفحه Puppeteer بسته شد`);
           this.pages.delete(page);
         });
         
         page.on('error', (error) => {
-          logger.warn('Page error occurred:', error.message);
-        });
-        
-        page.on('pageerror', (error) => {
-          logger.warn('Page JavaScript error:', error.message);
+          logger.error(`❌ خطا در صفحه Puppeteer: ${error.message}`);
+          this.pages.delete(page);
         });
         
         this.pages.add(page);
+        
+        logger.info(`✅ صفحه Puppeteer ایجاد شد (تعداد صفحات فعال: ${this.pages.size})`);
         
         // Setup Persian language
         await this.setupPersianLanguage(page);
@@ -361,6 +419,7 @@ class WebDriverManager {
 
   // Navigate to URL
   async goto(page, url, options = {}) {
+    logger.info(`🔗 ناوبری به URL: ${url}`, { driverType: this.driverType });
     this.lastActivity = Date.now();
     
     const defaultOptions = {
@@ -371,38 +430,47 @@ class WebDriverManager {
     const finalOptions = { ...defaultOptions, ...options };
     
     if (this.driverType === 'puppeteer') {
+      logger.info(`🌐 ناوبری Puppeteer به: ${url}`);
+      
       // Multi-stage navigation strategy
       let navigationSuccess = false;
       
       try {
+        logger.debug(`🔄 تلاش ناوبری با domcontentloaded`);
         await page.goto(url, { 
           waitUntil: 'domcontentloaded', 
           timeout: Math.min(finalOptions.timeout, 120000) 
         });
         navigationSuccess = true;
+        logger.info(`✅ ناوبری با domcontentloaded موفق`);
       } catch (navError) {
-        logger.warn(`Navigation with domcontentloaded failed, trying load: ${url}`);
+        logger.warn(`⚠️ ناوبری با domcontentloaded ناموفق، تلاش با load: ${url}`);
       }
       
       if (!navigationSuccess) {
         try {
+          logger.debug(`🔄 تلاش ناوبری با load`);
           await page.goto(url, { 
             waitUntil: 'load', 
             timeout: Math.min(finalOptions.timeout, 180000) 
           });
           navigationSuccess = true;
+          logger.info(`✅ ناوبری با load موفق`);
         } catch (navError) {
-          logger.warn(`Navigation with load failed, trying networkidle0: ${url}`);
+          logger.warn(`⚠️ ناوبری با load ناموفق، تلاش با networkidle0: ${url}`);
         }
       }
       
       if (!navigationSuccess) {
+        logger.debug(`🔄 تلاش ناوبری با networkidle0`);
         await page.goto(url, { 
           waitUntil: 'networkidle0', 
           timeout: finalOptions.timeout 
         });
+        logger.info(`✅ ناوبری با networkidle0 موفق`);
       }
       
+      logger.info(`⏳ انتظار 3 ثانیه برای بارگذاری کامل`);
       await new Promise(resolve => setTimeout(resolve, 3000));
       
     } else if (this.driverType === 'selenium') {
@@ -419,15 +487,32 @@ class WebDriverManager {
 
   // Close page
   async closePage(page) {
-    if (this.driverType === 'puppeteer' && page && !page.isClosed()) {
+    try {
+      if (this.driverType === 'puppeteer' && page) {
+        if (page.isClosed()) {
+          logger.info(`🔒 صفحه Puppeteer قبلاً بسته شده است`);
+          this.pages.delete(page);
+        } else {
+          logger.info(`🔒 بستن صفحه Puppeteer`);
+          this.pages.delete(page);
+          await page.close();
+          logger.info(`✅ صفحه Puppeteer با موفقیت بسته شد`);
+        }
+      } else if (this.driverType === 'playwright' && page) {
+        logger.info(`🔒 بستن صفحه Playwright`);
+        this.pages.delete(page);
+        await page.close();
+        logger.info(`✅ صفحه Playwright با موفقیت بسته شد`);
+      } else if (this.driverType === 'cheerio' && page) {
+        logger.info(`🔒 بستن صفحه Cheerio`);
+        // Cheerio doesn't need explicit page closing
+        await page.close();
+        logger.info(`✅ صفحه Cheerio با موفقیت بسته شد`);
+      }
+    } catch (error) {
+      logger.warn(`⚠️ خطا در بستن صفحه: ${error.message}`);
+      // حذف صفحه از لیست حتی اگر خطا رخ دهد
       this.pages.delete(page);
-      await page.close();
-    } else if (this.driverType === 'playwright' && page) {
-      this.pages.delete(page);
-      await page.close();
-    } else if (this.driverType === 'cheerio' && page) {
-      // Cheerio doesn't need explicit page closing
-      await page.close();
     }
   }
 
@@ -617,20 +702,27 @@ class WebDriverManager {
   // Force close all browser instances and cleanup
   async forceCloseWebDriver() {
     try {
-      logger.info('شروع بستن اجباری WebDriver...');
+      logger.info(`🔄 شروع بستن اجباری WebDriver (${this.driverType})...`);
       
       // Close all tracked pages first
       if (this.pages && this.pages.size > 0) {
+        logger.info(`📄 بستن ${this.pages.size} صفحه فعال`);
         for (const page of this.pages) {
           try {
             if (page && !page.isClosed()) {
               await page.close();
+              logger.debug(`✅ صفحه بسته شد`);
+            } else {
+              logger.debug(`🔒 صفحه قبلاً بسته شده است`);
             }
           } catch (error) {
-            logger.warn('خطا در بستن صفحه:', error.message);
+            logger.warn(`⚠️ خطا در بستن صفحه: ${error.message}`);
           }
         }
         this.pages.clear();
+        logger.info(`✅ تمام صفحات بسته شدند`);
+      } else {
+        logger.info(`📄 هیچ صفحه فعالی برای بستن وجود ندارد`);
       }
 
       // Close browser/driver based on type

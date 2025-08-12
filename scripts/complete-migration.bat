@@ -23,19 +23,19 @@ if %errorlevel% neq 0 (
 
 REM Check if database exists
 echo [INFO] بررسی وجود دیتابیس...
-psql -h localhost -U farsnews_user -d farsnews_crawler_spider_db -c "SELECT 1;" >nul 2>&1
+psql -h localhost -U crawler_user -d farsnews_crawler_spider_db -c "SELECT 1;" >nul 2>&1
 if %errorlevel% neq 0 (
     echo [WARNING] دیتابیس farsnews_crawler_spider_db موجود نیست
     echo [INFO] ایجاد دیتابیس PostgreSQL...
     
     REM Create user if not exists
-    psql -h localhost -U postgres -c "CREATE USER farsnews_user WITH PASSWORD 'farsnews123';" 2>nul
+    psql -h localhost -U postgres -c "CREATE USER crawler_user WITH PASSWORD 'farsnews123';" 2>nul
     
     REM Create database
-    psql -h localhost -U postgres -c "CREATE DATABASE farsnews_crawler_spider_db OWNER farsnews_user;" 2>nul
+    psql -h localhost -U postgres -c "CREATE DATABASE farsnews_crawler_spider_db OWNER crawler_user;" 2>nul
     
     REM Grant privileges
-    psql -h localhost -U postgres -c "GRANT ALL PRIVILEGES ON DATABASE farsnews_crawler_spider_db TO farsnews_user;" 2>nul
+    psql -h localhost -U postgres -c "GRANT ALL PRIVILEGES ON DATABASE farsnews_crawler_spider_db TO crawler_user;" 2>nul
     
     echo [SUCCESS] دیتابیس PostgreSQL ایجاد شد
 ) else (
