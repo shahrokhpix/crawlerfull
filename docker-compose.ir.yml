@@ -1,0 +1,111 @@
+version: '3.8'
+
+services:
+  postgres:
+    image: postgres:15
+    container_name: farsnews_postgres
+    environment:
+      POSTGRES_DB: farsnews_crawler_spider_db
+      POSTGRES_USER: crawler_user
+      POSTGRES_PASSWORD: farsnews123
+      POSTGRES_INITDB_ARGS: "--encoding=UTF-8 --lc-collate=C --lc-ctype=C"
+    ports:
+      - "5433:5432"
+    volumes:
+      - postgres_data:/var/lib/postgresql/data
+      - ./scripts/init-postgres.sql:/docker-entrypoint-initdb.d/init-postgres.sql
+    restart: unless-stopped
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U crawler_user -d farsnews_crawler_spider_db"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+    networks:
+      - crawler-network
+
+  pgadmin:
+    image: dpage/pgadmin4:latest
+    container_name: farsnews_pgadmin
+    environment:
+      PGADMIN_DEFAULT_EMAIL: admin@example.com
+      PGADMIN_DEFAULT_PASSWORD: admin123
+      PGADMIN_CONFIG_SERVER_MODE: 'False'
+    ports:
+      - "8080:80"
+    volumes:
+      - pgadmin_data:/var/lib/pgadmin
+    depends_on:
+      - postgres
+    restart: unless-stopped
+    networks:
+      - crawler-network
+
+  farsnews-crawler:
+    build:
+      context: .
+      dockerfile: Dockerfile
+      args:
+        # Use npm mirror to bypass registry blocks
+        NPM_CONFIG_REGISTRY: https://registry.npmmirror.com
+    container_name: farsnews-crawler
+    restart: unless-stopped
+    init: true
+    ports:
+      - "3004:3004"
+    environment:
+      - NODE_ENV=production
+      - PORT=3004
+      - TZ=Asia/Tehran
+      - DB_HOST=postgres
+      - DB_PORT=5432
+      - DB_USER=crawler_user
+      - DB_NAME=farsnews_crawler_spider_db
+      - DB_PASSWORD=farsnews123
+      # Force Playwright to use pre-bundled Chromium path if needed
+      - PLAYWRIGHT_BROWSERS_PATH=/home/node/.cache/ms-playwright
+    env_file:
+      - .env
+    volumes:
+      - ./data:/app/data
+      - ./logs:/app/logs
+      - ./config:/app/config:ro
+    depends_on:
+      postgres:
+        condition: service_healthy
+    networks:
+      - crawler-network
+    healthcheck:
+      test: ["CMD", "wget", "--no-verbose", "--tries=1", "--spider", "http://localhost:3004/api/health"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+      start_period: 60s
+    security_opt:
+      - no-new-privileges:true
+    deploy:
+      resources:
+        limits:
+          memory: 2G
+          cpus: '1.0'
+        reservations:
+          memory: 1G
+          cpus: '0.5'
+    logging:
+      driver: "json-file"
+      options:
+        max-size: "10m"
+        max-file: "3"
+
+networks:
+  crawler-network:
+    driver: bridge
+
+volumes:
+  postgres_data:
+    driver: local
+  pgadmin_data:
+    driver: local
+  crawler-data:
+    driver: local
+  crawler-logs:
+    driver: local 
