@@ -198,3 +198,4 @@ dev/
 database-template.sql
 database-template.IGNORE.sql
 db-backup.dump
+scripts/database-template.sql
