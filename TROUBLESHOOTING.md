@@ -213,9 +213,9 @@ pm2 delete all
 ```env
 DB_HOST=postgres
 DB_PORT=5432
-DB_USER=farsnews_user
+DB_USER=crawler_user
 DB_NAME=farsnews_crawler_spider_db
-DB_PASSWORD=farsnews123
+DB_PASSWORD=8bmh8y19zNJahAv5Aa4B
 ```
 
 ### جداول اصلی

@@ -3,35 +3,14 @@ let authToken = localStorage.getItem('authToken');
 let currentUser = null;
 let toastTimeout;
 let pageLoadingTimeout;
-let logsWebSocket = null;
-let logsAutoRefreshInterval = null;
-let currentLogsPage = 1;
-let logsPerPage = 20;
-let logsFilters = {
-    source: '',
-    status: '',
-    action: '',
-    dateFrom: '',
-    dateTo: '',
-    message: '',
-    sortBy: 'created_at',
-    sortOrder: 'desc'
-};
 
-// Selector counters for dynamic fields
-let selectorCounters = {
-    title: 0,
-    content: 0,
-    lead: 0,
-    router: 0
-};
-
-let editSelectorCounters = {
-    title: 0,
-    content: 0,
-    lead: 0,
-    router: 0
-};
+// Utility functions
+function escapeHtml(text) {
+    if (!text) return '';
+    const div = document.createElement('div');
+    div.textContent = text;
+    return div.innerHTML;
+}
 
 // Loading functions
 function showLoading() {
@@ -253,10 +232,6 @@ function showSection(sectionName) {
             break;
         case 'logs':
             loadLogs();
-            loadLogSources();
-            setupLogsAutoRefresh();
-            setupRealtimeLogs();
-            setupAdvancedLogFilters();
             break;
         case 'schedules':
             loadSchedules();
@@ -501,9 +476,12 @@ async function loadDashboard() {
         animateCounter('totalSources', 0, stats.totalSources || 0);
         animateCounter('recentCrawls', 0, stats.recentCrawls || 0);
         
-        // Load top sources
-        if (stats.topSources && stats.topSources.length > 0) {
-            const topSourcesHtml = stats.topSources.map((source, index) => 
+        // Load top sources (supports both array and pg result object)
+        const topSourcesArray = Array.isArray(stats.topSources)
+          ? stats.topSources
+          : (stats.topSources && Array.isArray(stats.topSources.rows) ? stats.topSources.rows : []);
+        if (topSourcesArray.length > 0) {
+            const topSourcesHtml = topSourcesArray.map((source, index) => 
                 `<div class="d-flex justify-content-between align-items-center mb-2" 
                       style="animation-delay: ${index * 100}ms; animation: fadeIn 0.5s ease forwards;">
                     <span>${source.name}</span>
@@ -515,14 +493,17 @@ async function loadDashboard() {
             document.getElementById('topSources').innerHTML = '<p class="text-muted">هنوز داده‌ای موجود نیست</p>';
         }
         
-        // Load recent activity - اگر عنصر موجود باشد
+        // Load recent activity - اگر عنصر موجود باشد (supports pg result object)
         const recentActivityElement = document.getElementById('recentActivity');
         if (recentActivityElement) {
-            if (stats.recentActivity && stats.recentActivity.length > 0) {
-                const activityHtml = stats.recentActivity.map((activity, index) => 
+            const activityArray = Array.isArray(stats.recentActivity)
+              ? stats.recentActivity
+              : (stats.recentActivity && Array.isArray(stats.recentActivity.rows) ? stats.recentActivity.rows : []);
+            if (activityArray.length > 0) {
+                const activityHtml = activityArray.map((activity, index) => 
                     `<div class="d-flex justify-content-between align-items-center mb-2"
                           style="animation-delay: ${index * 100}ms; animation: fadeIn 0.5s ease forwards;">
-                        <small>${activity.message}</small>
+                        <small>${activity.message || ''}</small>
                         <small class="text-muted">${formatDate(activity.timestamp)}</small>
                     </div>`
                 ).join('');
@@ -646,9 +627,6 @@ async function loadSources() {
             <tr>
                 <td>${source.name}</td>
                 <td><a href="${source.base_url}" target="_blank">${source.base_url}</a></td>
-                <td><code class="text-primary">${source.list_selector || '-'}</code></td>
-                <td><code class="text-success">${source.title_selector || '-'}</code></td>
-                <td><code class="text-info">${source.content_selector || '-'}</code></td>
                 <td>
                     <span class="badge ${source.driver_type === 'selenium' ? 'bg-info' : source.driver_type === 'playwright' ? 'bg-success' : source.driver_type === 'cheerio' ? 'bg-warning' : 'bg-primary'}">
                         ${source.driver_type === 'selenium' ? 'Selenium' : source.driver_type === 'playwright' ? 'Playwright' : source.driver_type === 'cheerio' ? 'Cheerio' : 'Puppeteer'}
@@ -679,26 +657,50 @@ async function loadSources() {
     } catch (error) {
         console.error('Error loading sources:', error);
         document.getElementById('sourcesTable').innerHTML = 
-            '<tr><td colspan="8" class="text-center text-danger">خطا در بارگذاری منابع</td></tr>';
+            '<tr><td colspan="5" class="text-center text-danger">خطا در بارگذاری منابع</td></tr>';
     }
 }
 
 async function addSource() {
+    console.log('🚀 شروع فرآیند افزودن منبع جدید');
+    
     const form = document.getElementById('addSourceForm');
     const formData = new FormData(form);
     
-    // جمع‌آوری سلکتورهای چندگانه
-    const titleSelectors = collectSelectors('title');
-    const contentSelectors = collectSelectors('content');
-    const leadSelectors = collectSelectors('lead');
-    const routerSelectors = collectSelectors('router');
+    console.log('📋 فرم پیدا شد:', form ? 'موجود' : 'یافت نشد');
     
-    const sourceData = {
+    // جمع‌آوری سلکتورهای چندگانه
+    console.log('🔍 شروع جمع‌آوری سلکتورهای چندگانه...');
+    
+    const titleSelectors = collectSelectors('title');
+    console.log('📝 سلکتورهای عنوان جمع‌آوری شده:', titleSelectors);
+    
+    const contentSelectors = collectSelectors('content');
+    console.log('📄 سلکتورهای محتوا جمع‌آوری شده:', contentSelectors);
+    
+    const leadSelectors = collectSelectors('lead');
+    console.log('📰 سلکتورهای لید جمع‌آوری شده:', leadSelectors);
+    
+    const routerSelectors = collectSelectors('router');
+    console.log('👤 سلکتورهای روتیتر جمع‌آوری شده:', routerSelectors);
+    
+    // بررسی مقادیر فیلدهای اصلی
+    const basicFields = {
         name: document.getElementById('sourceName').value,
         base_url: document.getElementById('sourceUrl').value,
         list_selector: document.getElementById('listSelector').value,
-        title_selector: titleSelectors.length > 0 ? titleSelectors[0] : '',
         link_selector: document.getElementById('linkSelector').value,
+        driver_type: document.getElementById('driverType').value
+    };
+    
+    console.log('🏷️ فیلدهای اصلی:', basicFields);
+    
+    const sourceData = {
+        name: basicFields.name,
+        base_url: basicFields.base_url,
+        list_selector: basicFields.list_selector,
+        title_selector: titleSelectors.length > 0 ? titleSelectors[0] : '',
+        link_selector: basicFields.link_selector,
         content_selector: contentSelectors.length > 0 ? contentSelectors[0] : '',
         lead_selector: leadSelectors.length > 0 ? leadSelectors[0] : '',
         router_selector: routerSelectors.length > 0 ? routerSelectors[0] : '',
@@ -706,22 +708,52 @@ async function addSource() {
         content_selectors: JSON.stringify(contentSelectors),
         lead_selectors: JSON.stringify(leadSelectors),
         router_selectors: JSON.stringify(routerSelectors),
-        driver_type: document.getElementById('driverType').value
+        driver_type: basicFields.driver_type
     };
     
+    console.log('📦 داده‌های نهایی برای ارسال:', sourceData);
+    console.log('🔢 تعداد سلکتورهای هر نوع:', {
+        title: titleSelectors.length,
+        content: contentSelectors.length,
+        lead: leadSelectors.length,
+        router: routerSelectors.length
+    });
+    
     try {
-        await apiCall('/api/sources', {
+        console.log('🌐 ارسال درخواست به سرور...');
+        console.log('📡 URL: /api/sources');
+        console.log('📤 Method: POST');
+        console.log('📋 Body:', JSON.stringify(sourceData, null, 2));
+        
+        const response = await apiCall('/api/sources', {
             method: 'POST',
             body: JSON.stringify(sourceData)
         });
         
+        console.log('✅ پاسخ موفق از سرور دریافت شد:', response);
+        console.log('💾 وضعیت ذخیره‌سازی: موفق');
+        
         showSuccess('منبع با موفقیت اضافه شد');
+        
+        console.log('🔄 بستن مودال و پاکسازی فرم...');
         bootstrap.Modal.getInstance(document.getElementById('addSourceModal')).hide();
         form.reset();
         clearAllSelectorFields();
+        
+        console.log('🔄 بارگذاری مجدد لیست منابع...');
         loadSources();
         
+        console.log('🎉 فرآیند افزودن منبع با موفقیت تکمیل شد');
+        
     } catch (error) {
+        console.error('❌ خطا در افزودن منبع:', error);
+        console.error('📋 جزئیات خطا:', {
+            message: error.message,
+            stack: error.stack,
+            name: error.name
+        });
+        console.error('📦 داده‌هایی که ارسال شده بود:', sourceData);
+        
         alert('خطا در افزودن منبع: ' + error.message);
     }
 }
@@ -752,6 +784,17 @@ async function editSource(sourceId) {
         document.getElementById('editSourceActive').checked = source.active;
         
         // پر کردن سلکتورهای چندگانه
+        console.log('🔍 داده‌های دریافت شده از سرور:', {
+            title_selectors: source.title_selectors,
+            title_selector: source.title_selector,
+            content_selectors: source.content_selectors,
+            content_selector: source.content_selector,
+            lead_selectors: source.lead_selectors,
+            lead_selector: source.lead_selector,
+            router_selectors: source.router_selectors,
+            router_selector: source.router_selector
+        });
+        
         populateEditSelectors('title', source.title_selectors || source.title_selector);
         populateEditSelectors('content', source.content_selectors || source.content_selector);
         populateEditSelectors('lead', source.lead_selectors || source.lead_selector);
@@ -767,16 +810,28 @@ async function editSource(sourceId) {
 }
 
 async function updateSource() {
+    console.log('🔄 [updateSource] شروع فرآیند به‌روزرسانی منبع');
+    
     const sourceId = document.getElementById('editSourceId').value;
+    console.log('🆔 [updateSource] ID منبع:', sourceId);
+    
     const modalElement = document.getElementById('editSourceModal');
     const modalInstance = bootstrap.Modal.getInstance(modalElement);
 
     // جمع‌آوری سلکتورهای چندگانه از فرم ویرایش
+    console.log('📋 [updateSource] شروع جمع‌آوری سلکتورهای چندگانه...');
     const titleSelectors = collectSelectors('title', true);
     const contentSelectors = collectSelectors('content', true);
     const leadSelectors = collectSelectors('lead', true);
     const routerSelectors = collectSelectors('router', true);
+    
+    console.log('📊 [updateSource] نتایج جمع‌آوری سلکتورها:');
+    console.log('  📝 titleSelectors:', titleSelectors);
+    console.log('  📄 contentSelectors:', contentSelectors);
+    console.log('  📰 leadSelectors:', leadSelectors);
+    console.log('  👤 routerSelectors:', routerSelectors);
 
+    console.log('🏗️ [updateSource] ساخت شیء sourceData...');
     const sourceData = {
         name: document.getElementById('editSourceName').value,
         base_url: document.getElementById('editSourceUrl').value,
@@ -784,8 +839,8 @@ async function updateSource() {
         title_selector: titleSelectors.length > 0 ? titleSelectors[0] : '',
         link_selector: document.getElementById('editLinkSelector').value,
         content_selector: contentSelectors.length > 0 ? contentSelectors[0] : '',
-        lead_selector: document.getElementById('editLeadSelector').value,
-        router_selector: document.getElementById('editRouterSelector').value,
+        lead_selector: leadSelectors.length > 0 ? leadSelectors[0] : '',
+        router_selector: routerSelectors.length > 0 ? routerSelectors[0] : '',
         title_selectors: JSON.stringify(titleSelectors),
         content_selectors: JSON.stringify(contentSelectors),
         lead_selectors: JSON.stringify(leadSelectors),
@@ -794,7 +849,23 @@ async function updateSource() {
         active: document.getElementById('editSourceActive').checked ? 1 : 0
     };
 
-    console.log('Updating source with data:', sourceData);
+    console.log('📦 [updateSource] داده‌های نهایی برای ارسال:');
+    console.log('  🏷️ name:', sourceData.name);
+    console.log('  🌐 base_url:', sourceData.base_url);
+    console.log('  📋 list_selector:', sourceData.list_selector);
+    console.log('  📝 title_selector:', sourceData.title_selector);
+    console.log('  🔗 link_selector:', sourceData.link_selector);
+    console.log('  📄 content_selector:', sourceData.content_selector);
+    console.log('  📰 lead_selector:', sourceData.lead_selector);
+    console.log('  👤 router_selector:', sourceData.router_selector);
+    console.log('  📝 title_selectors (JSON):', sourceData.title_selectors);
+    console.log('  📄 content_selectors (JSON):', sourceData.content_selectors);
+    console.log('  📰 lead_selectors (JSON):', sourceData.lead_selectors);
+    console.log('  👤 router_selectors (JSON):', sourceData.router_selectors);
+    console.log('  🚗 driver_type:', sourceData.driver_type);
+    console.log('  ✅ active:', sourceData.active);
+    
+    console.log('🚀 [updateSource] ارسال درخواست PUT به سرور...');
 
     try {
         await apiCall(`/api/sources/${sourceId}`, {
@@ -1262,55 +1333,14 @@ async function loadStats() {
 }
 
 // Logs functions
-
-async function loadLogs(page = 1) {
+async function loadLogs() {
     try {
-        const pageSize = parseInt(document.getElementById('logPageSize')?.value || logsPerPage);
-        const offset = (page - 1) * pageSize;
-        
-        let url = `/api/logs?limit=${pageSize}&offset=${offset}`;
-        
-        // اضافه کردن فیلترهای پیشرفته
-        const sourceFilter = document.getElementById('logSourceFilter')?.value;
-        const statusFilter = document.getElementById('logStatusFilter')?.value;
-        const actionFilter = document.getElementById('logActionFilter')?.value;
-        const dateFrom = document.getElementById('logDateFrom')?.value;
-        const dateTo = document.getElementById('logDateTo')?.value;
-        const messageSearch = document.getElementById('logMessageSearch')?.value;
-        const sortBy = document.getElementById('logSortBy')?.value;
-        
-        if (sourceFilter) {
-            url += `&source_id=${sourceFilter}`;
-        }
-        if (statusFilter) {
-            url += `&status=${statusFilter}`;
-        }
-        if (actionFilter) {
-            url += `&action=${actionFilter}`;
-        }
-        if (dateFrom) {
-            url += `&date_from=${dateFrom}`;
-        }
-        if (dateTo) {
-            url += `&date_to=${dateTo}`;
-        }
-        if (messageSearch) {
-            url += `&message=${encodeURIComponent(messageSearch)}`;
-        }
-        if (sortBy) {
-            url += `&sort=${sortBy}`;
-        }
-        
-        const data = await apiCall(url);
+        const data = await apiCall('/api/logs');
         const logs = data.logs || data || [];
-        const pagination = data.pagination || {};
         const tableBody = document.getElementById('logsTable');
         
-        currentLogsPage = page;
-        
         if (logs.length === 0) {
-            tableBody.innerHTML = '<tr><td colspan="8" class="text-center">هیچ لاگی یافت نشد</td></tr>';
-            updateLogsPagination(pagination);
+            tableBody.innerHTML = '<tr><td colspan="6" class="text-center">هیچ لاگی یافت نشد</td></tr>';
             return;
         }
         
@@ -1318,10 +1348,10 @@ async function loadLogs(page = 1) {
             <tr>
                 <td>${formatDate(log.created_at)}</td>
                 <td>${log.source_name || 'نامشخص'}</td>
-                <td><span class="badge bg-info">${log.action || 'نامشخص'}</span></td>
+                <td><span class="badge bg-info">${log.action}</span></td>
                 <td>
                     <span class="badge ${getStatusBadgeClass(log.status)}">
-                        ${log.status || 'نامشخص'}
+                        ${log.status}
                     </span>
                 </td>
                 <td>
@@ -1331,530 +1361,20 @@ async function loadLogs(page = 1) {
                     </small>
                 </td>
                 <td>
-                    <small>${formatDuration(log.duration_ms || 0)}</small>
-                </td>
-                <td>
                     <button class="btn btn-sm btn-outline-info" 
-                            onclick='showLogDetails(${JSON.stringify(log).replace(/'/g, "&#39;").replace(/"/g, "&quot;")})' 
-                            title="مشاهده جزئیات">
+                            onclick='showLogDetails(${JSON.stringify(log).replace(/'/g, "&#39;").replace(/"/g, "&quot;")})'>
                         <i class="fas fa-eye"></i>
                     </button>
-                </td>
-                <td>
-                    <div class="btn-group btn-group-sm">
-                        <button class="btn btn-outline-danger" 
-                                onclick="deleteLog(${log.id})" 
-                                title="حذف لاگ">
-                            <i class="fas fa-trash"></i>
-                        </button>
-                        <button class="btn btn-outline-warning" 
-                                onclick="retryLog(${log.id})" 
-                                title="تلاش مجدد"
-                                ${log.status === 'error' ? '' : 'disabled'}>
-                            <i class="fas fa-redo"></i>
-                        </button>
-                    </div>
                 </td>
             </tr>
         `).join('');
         
         tableBody.innerHTML = logsHtml;
-        updateLogsPagination(pagination);
-        
-        // به‌روزرسانی آمار
-        updateLogsStats();
         
     } catch (error) {
         console.error('Error loading logs:', error);
         document.getElementById('logsTable').innerHTML = 
-            '<tr><td colspan="8" class="text-center text-danger">خطا در بارگذاری لاگ‌ها</td></tr>';
-        updateLogsPagination({});
-    }
-}
-
-function updateLogsPagination(pagination) {
-    const paginationContainer = document.getElementById('logsPagination');
-    const infoContainer = document.getElementById('logsInfo');
-    
-    if (!pagination.totalCount || pagination.totalCount === 0) {
-        paginationContainer.innerHTML = '';
-        infoContainer.textContent = 'هیچ لاگی یافت نشد';
-        return;
-    }
-    
-    const { currentPage, totalPages, totalCount, limit, offset } = pagination;
-    const startItem = offset + 1;
-    const endItem = Math.min(offset + limit, totalCount);
-    
-    // Update info text
-    infoContainer.textContent = `نمایش ${startItem} تا ${endItem} از ${totalCount} لاگ`;
-    
-    // Generate pagination buttons
-    let paginationHtml = '';
-    
-    // Previous button
-    if (currentPage > 1) {
-        paginationHtml += `
-            <li class="page-item">
-                <a class="page-link" href="#" onclick="loadLogs(${currentPage - 1}); return false;">
-                    <i class="fas fa-chevron-right"></i>
-                </a>
-            </li>
-        `;
-    } else {
-        paginationHtml += `
-            <li class="page-item disabled">
-                <span class="page-link"><i class="fas fa-chevron-right"></i></span>
-            </li>
-        `;
-    }
-    
-    // Page numbers
-    const maxVisiblePages = 5;
-    let startPage = Math.max(1, currentPage - Math.floor(maxVisiblePages / 2));
-    let endPage = Math.min(totalPages, startPage + maxVisiblePages - 1);
-    
-    if (endPage - startPage + 1 < maxVisiblePages) {
-        startPage = Math.max(1, endPage - maxVisiblePages + 1);
-    }
-    
-    if (startPage > 1) {
-        paginationHtml += `
-            <li class="page-item">
-                <a class="page-link" href="#" onclick="loadLogs(1); return false;">1</a>
-            </li>
-        `;
-        if (startPage > 2) {
-            paginationHtml += `<li class="page-item disabled"><span class="page-link">...</span></li>`;
-        }
-    }
-    
-    for (let i = startPage; i <= endPage; i++) {
-        if (i === currentPage) {
-            paginationHtml += `
-                <li class="page-item active">
-                    <span class="page-link">${i}</span>
-                </li>
-            `;
-        } else {
-            paginationHtml += `
-                <li class="page-item">
-                    <a class="page-link" href="#" onclick="loadLogs(${i}); return false;">${i}</a>
-                </li>
-            `;
-        }
-    }
-    
-    if (endPage < totalPages) {
-        if (endPage < totalPages - 1) {
-            paginationHtml += `<li class="page-item disabled"><span class="page-link">...</span></li>`;
-        }
-        paginationHtml += `
-            <li class="page-item">
-                <a class="page-link" href="#" onclick="loadLogs(${totalPages}); return false;">${totalPages}</a>
-            </li>
-        `;
-    }
-    
-    // Next button
-    if (currentPage < totalPages) {
-        paginationHtml += `
-            <li class="page-item">
-                <a class="page-link" href="#" onclick="loadLogs(${currentPage + 1}); return false;">
-                    <i class="fas fa-chevron-left"></i>
-                </a>
-            </li>
-        `;
-    } else {
-        paginationHtml += `
-            <li class="page-item disabled">
-                <span class="page-link"><i class="fas fa-chevron-left"></i></span>
-            </li>
-        `;
-    }
-    
-    paginationContainer.innerHTML = paginationHtml;
-}
-
-// توابع مربوط به فیلترهای لاگ‌ها
-function toggleLogFilters() {
-    const filtersDiv = document.getElementById('logFilters');
-    const toggleBtn = event.target.closest('button');
-    
-    if (filtersDiv.style.display === 'none') {
-        filtersDiv.style.display = 'block';
-        toggleBtn.innerHTML = '<i class="fas fa-filter"></i> مخفی کردن فیلترها';
-        toggleBtn.classList.remove('btn-outline-info');
-        toggleBtn.classList.add('btn-info');
-    } else {
-        filtersDiv.style.display = 'none';
-        toggleBtn.innerHTML = '<i class="fas fa-filter"></i> فیلترها';
-        toggleBtn.classList.remove('btn-info');
-        toggleBtn.classList.add('btn-outline-info');
-    }
-}
-
-function applyLogFilters() {
-    loadLogs(1);
-}
-
-function clearLogFilters() {
-    // پاک کردن تمام فیلترها
-    document.getElementById('logSourceFilter').value = '';
-    document.getElementById('logStatusFilter').value = '';
-    document.getElementById('logActionFilter').value = '';
-    document.getElementById('logDateFrom').value = '';
-    document.getElementById('logDateTo').value = '';
-    document.getElementById('logMessageSearch').value = '';
-    document.getElementById('logSortBy').value = 'created_at_desc';
-    
-    // بارگذاری مجدد لاگ‌ها
-    loadLogs(1);
-    
-    showSuccess('فیلترهای لاگ پاک شدند');
-}
-
-// توابع عملیات لاگ‌ها
-async function deleteLog(logId) {
-    if (!confirm('آیا از حذف این لاگ اطمینان دارید؟')) {
-        return;
-    }
-    
-    try {
-        await apiCall(`/api/logs/${logId}`, {
-            method: 'DELETE'
-        });
-        
-        showSuccess('لاگ با موفقیت حذف شد');
-        loadLogs(currentLogsPage);
-        
-    } catch (error) {
-        showError(null, 'خطا در حذف لاگ: ' + error.message);
-    }
-}
-
-async function retryLog(logId) {
-    if (!confirm('آیا می‌خواهید این عملیات را دوباره اجرا کنید؟')) {
-        return;
-    }
-    
-    try {
-        await apiCall(`/api/logs/${logId}/retry`, {
-            method: 'POST'
-        });
-        
-        showSuccess('عملیات دوباره اجرا شد');
-        loadLogs(currentLogsPage);
-        
-    } catch (error) {
-        showError(null, 'خطا در اجرای مجدد: ' + error.message);
-    }
-}
-
-async function exportLogs() {
-    try {
-        // جمع‌آوری فیلترهای فعلی
-        const filters = {
-            source_id: document.getElementById('logSourceFilter')?.value,
-            status: document.getElementById('logStatusFilter')?.value,
-            action: document.getElementById('logActionFilter')?.value,
-            date_from: document.getElementById('logDateFrom')?.value,
-            date_to: document.getElementById('logDateTo')?.value,
-            message: document.getElementById('logMessageSearch')?.value,
-            sort: document.getElementById('logSortBy')?.value
-        };
-        
-        // ساخت URL با فیلترها
-        let url = '/api/logs/export?';
-        Object.entries(filters).forEach(([key, value]) => {
-            if (value) {
-                url += `${key}=${encodeURIComponent(value)}&`;
-            }
-        });
-        
-        // دانلود فایل
-        const response = await fetch(url, {
-            headers: {
-                'Authorization': `Bearer ${authToken}`
-            }
-        });
-        
-        if (!response.ok) {
-            throw new Error('خطا در دانلود فایل');
-        }
-        
-        const blob = await response.blob();
-        const downloadUrl = window.URL.createObjectURL(blob);
-        const a = document.createElement('a');
-        a.href = downloadUrl;
-        a.download = `logs_${new Date().toISOString().split('T')[0]}.csv`;
-        document.body.appendChild(a);
-        a.click();
-        document.body.removeChild(a);
-        window.URL.revokeObjectURL(downloadUrl);
-        
-        showSuccess('فایل لاگ‌ها با موفقیت دانلود شد');
-        
-    } catch (error) {
-        showError(null, 'خطا در دانلود لاگ‌ها: ' + error.message);
-    }
-}
-
-async function clearAllLogs() {
-    if (!confirm('آیا از پاک کردن تمام لاگ‌ها اطمینان دارید؟ این عملیات قابل برگشت نیست!')) {
-        return;
-    }
-    
-    try {
-        await apiCall('/api/logs/clear-all', {
-            method: 'DELETE'
-        });
-        
-        showSuccess('تمام لاگ‌ها با موفقیت پاک شدند');
-        loadLogs(1);
-        
-    } catch (error) {
-        showError(null, 'خطا در پاک کردن لاگ‌ها: ' + error.message);
-    }
-}
-
-// به‌روزرسانی آمار لاگ‌ها
-async function updateLogsStats() {
-    try {
-        const data = await apiCall('/api/logs/stats');
-        const stats = data.stats || {};
-        
-        // به‌روزرسانی کارت‌های آمار
-        if (document.getElementById('totalLogsCount')) {
-            document.getElementById('totalLogsCount').textContent = stats.total || 0;
-        }
-        if (document.getElementById('successLogsCount')) {
-            document.getElementById('successLogsCount').textContent = stats.success || 0;
-        }
-        if (document.getElementById('errorLogsCount')) {
-            document.getElementById('errorLogsCount').textContent = stats.error || 0;
-        }
-        if (document.getElementById('todayLogsCount')) {
-            document.getElementById('todayLogsCount').textContent = stats.today || 0;
-        }
-        
-    } catch (error) {
-        console.error('Error loading logs stats:', error);
-    }
-}
-
-// تنظیم به‌روزرسانی خودکار لاگ‌ها
-function setupLogsAutoRefresh() {
-    const autoRefreshCheckbox = document.getElementById('autoRefreshLogs');
-    if (!autoRefreshCheckbox) return;
-    
-    autoRefreshCheckbox.addEventListener('change', function() {
-        if (this.checked) {
-            startLogsAutoRefresh();
-        } else {
-            stopLogsAutoRefresh();
-        }
-    });
-    
-    // شروع به‌روزرسانی خودکار اگر فعال باشد
-    if (autoRefreshCheckbox.checked) {
-        startLogsAutoRefresh();
-    }
-}
-
-// راه‌اندازی WebSocket برای لاگ‌های realtime
-function setupRealtimeLogs() {
-    const realtimeCheckbox = document.getElementById('realtimeLogs');
-    if (!realtimeCheckbox) return;
-    
-    realtimeCheckbox.addEventListener('change', function() {
-        if (this.checked) {
-            setupLogsWebSocket();
-            document.getElementById('realtimeLogsCard').style.display = 'block';
-        } else {
-            if (logsWebSocket) {
-                logsWebSocket.close();
-                logsWebSocket = null;
-            }
-            document.getElementById('realtimeLogsCard').style.display = 'none';
-        }
-    });
-    
-    // شروع WebSocket اگر فعال باشد
-    if (realtimeCheckbox.checked) {
-        setupLogsWebSocket();
-        document.getElementById('realtimeLogsCard').style.display = 'block';
-    }
-}
-
-// فیلترهای پیشرفته لاگ‌ها
-function setupAdvancedLogFilters() {
-    // فیلتر بر اساس منبع
-    const sourceFilter = document.getElementById('logSourceFilter');
-    if (sourceFilter) {
-        sourceFilter.addEventListener('change', applyLogFilters);
-    }
-    
-    // فیلتر بر اساس وضعیت
-    const statusFilter = document.getElementById('logStatusFilter');
-    if (statusFilter) {
-        statusFilter.addEventListener('change', applyLogFilters);
-    }
-    
-    // فیلتر بر اساس عملیات
-    const actionFilter = document.getElementById('logActionFilter');
-    if (actionFilter) {
-        actionFilter.addEventListener('change', applyLogFilters);
-    }
-    
-    // فیلتر بر اساس تاریخ
-    const dateFromFilter = document.getElementById('logDateFrom');
-    const dateToFilter = document.getElementById('logDateTo');
-    if (dateFromFilter) {
-        dateFromFilter.addEventListener('change', applyLogFilters);
-    }
-    if (dateToFilter) {
-        dateToFilter.addEventListener('change', applyLogFilters);
-    }
-    
-    // جستجو در پیام
-    const messageSearch = document.getElementById('logMessageSearch');
-    if (messageSearch) {
-        messageSearch.addEventListener('input', debounce(applyLogFilters, 500));
-    }
-    
-    // مرتب‌سازی
-    const sortByFilter = document.getElementById('logSortBy');
-    if (sortByFilter) {
-        sortByFilter.addEventListener('change', applyLogFilters);
-    }
-}
-
-// تابع debounce برای بهینه‌سازی جستجو
-function debounce(func, wait) {
-    let timeout;
-    return function executedFunction(...args) {
-        const later = () => {
-            clearTimeout(timeout);
-            func(...args);
-        };
-        clearTimeout(timeout);
-        timeout = setTimeout(later, wait);
-    };
-}
-
-// اعمال فیلترهای لاگ
-function applyLogFilters() {
-    // ذخیره فیلترها
-    logsFilters.source = document.getElementById('logSourceFilter')?.value || '';
-    logsFilters.status = document.getElementById('logStatusFilter')?.value || '';
-    logsFilters.action = document.getElementById('logActionFilter')?.value || '';
-    logsFilters.dateFrom = document.getElementById('logDateFrom')?.value || '';
-    logsFilters.dateTo = document.getElementById('logDateTo')?.value || '';
-    logsFilters.message = document.getElementById('logMessageSearch')?.value || '';
-    logsFilters.sortBy = document.getElementById('logSortBy')?.value || 'created_at';
-    
-    // بارگذاری مجدد لاگ‌ها با فیلترهای جدید
-    loadLogs(1);
-}
-
-// پاک کردن فیلترهای لاگ
-function clearLogFilters() {
-    // پاک کردن فیلدها
-    document.getElementById('logSourceFilter').value = '';
-    document.getElementById('logStatusFilter').value = '';
-    document.getElementById('logActionFilter').value = '';
-    document.getElementById('logDateFrom').value = '';
-    document.getElementById('logDateTo').value = '';
-    document.getElementById('logMessageSearch').value = '';
-    document.getElementById('logSortBy').value = 'created_at';
-    
-    // پاک کردن فیلترها
-    logsFilters = {
-        source: '',
-        status: '',
-        action: '',
-        dateFrom: '',
-        dateTo: '',
-        message: '',
-        sortBy: 'created_at',
-        sortOrder: 'desc'
-    };
-    
-    // بارگذاری مجدد لاگ‌ها
-    loadLogs(1);
-}
-
-// نمایش/مخفی کردن فیلترهای پیشرفته
-function toggleAdvancedLogFilters() {
-    const filtersContainer = document.getElementById('advancedLogFilters');
-    const toggleBtn = document.getElementById('toggleLogFiltersBtn');
-    
-    if (filtersContainer.style.display === 'none') {
-        filtersContainer.style.display = 'block';
-        toggleBtn.innerHTML = '<i class="fas fa-chevron-up me-2"></i>مخفی کردن فیلترها';
-    } else {
-        filtersContainer.style.display = 'none';
-        toggleBtn.innerHTML = '<i class="fas fa-chevron-down me-2"></i>نمایش فیلترهای پیشرفته';
-    }
-}
-
-function startLogsAutoRefresh() {
-    stopLogsAutoRefresh(); // توقف interval قبلی
-    
-    logsAutoRefreshInterval = setInterval(() => {
-        // فقط اگر بخش لاگ‌ها نمایش داده شود
-        const logsSection = document.getElementById('logs');
-        if (logsSection && logsSection.style.display !== 'none') {
-            loadLogs(currentLogsPage);
-        }
-    }, 30000); // هر 30 ثانیه
-}
-
-function stopLogsAutoRefresh() {
-    if (logsAutoRefreshInterval) {
-        clearInterval(logsAutoRefreshInterval);
-        logsAutoRefreshInterval = null;
-    }
-}
-
-// تابع فرمت کردن مدت زمان
-function formatDuration(ms) {
-    if (!ms || ms === 0) return '-';
-    
-    const seconds = Math.floor(ms / 1000);
-    const minutes = Math.floor(seconds / 60);
-    const hours = Math.floor(minutes / 60);
-    
-    if (hours > 0) {
-        return `${hours}h ${minutes % 60}m ${seconds % 60}s`;
-    } else if (minutes > 0) {
-        return `${minutes}m ${seconds % 60}s`;
-    } else {
-        return `${seconds}s`;
-    }
-}
-
-// بارگذاری منابع برای فیلتر لاگ‌ها
-async function loadLogSources() {
-    try {
-        const data = await apiCall('/api/sources');
-        const sources = data.sources || data || [];
-        const select = document.getElementById('logSourceFilter');
-        
-        if (!select) return;
-        
-        select.innerHTML = '<option value="">همه منابع</option>';
-        
-        sources.forEach(source => {
-            const option = document.createElement('option');
-            option.value = source.id;
-            option.textContent = source.name;
-            select.appendChild(option);
-        });
-        
-    } catch (error) {
-        console.error('Error loading sources for log filter:', error);
+            '<tr><td colspan="6" class="text-center text-danger">خطا در بارگذاری لاگ‌ها</td></tr>';
     }
 }
 
@@ -3209,14 +2729,37 @@ function stopWebDriverAutoRefresh() {
 
 // ==================== MULTIPLE SELECTOR MANAGEMENT ====================
 
+// متغیرهای سراسری برای مدیریت سلکتورهای چندگانه
+let selectorCounters = {
+    title: 0,
+    content: 0,
+    lead: 0,
+    router: 0
+};
+
+let editSelectorCounters = {
+    title: 0,
+    content: 0,
+    lead: 0,
+    router: 0
+};
+
 // اضافه کردن فیلد سلکتور جدید در فرم اضافه کردن
 function addSelectorField(type) {
     const container = document.getElementById(`${type}SelectorsContainer`);
     const counter = ++selectorCounters[type];
     
+    console.log(`🔧 [addSelectorField] اضافه کردن فیلد سلکتور برای نوع: ${type}, شماره: ${counter}`);
+    console.log(`📦 [addSelectorField] ID کانتینر: ${type}SelectorsContainer`);
+    
+    if (!container) {
+        console.error(`❌ [addSelectorField] کانتینر با ID '${type}SelectorsContainer' پیدا نشد`);
+        return;
+    }
+    
     const fieldHtml = `
         <div class="input-group mt-2" id="${type}Selector${counter}">
-            <input type="text" class="form-control" placeholder="سلکتور ${type} ${counter}">
+            <input type="text" class="form-control" id="${type}SelectorInput${counter}" placeholder="سلکتور ${type} ${counter}" data-selector-type="${type}">
             <button type="button" class="btn btn-outline-danger" onclick="removeSelectorField('${type}', ${counter})">
                 <i class="fas fa-trash"></i>
             </button>
@@ -3224,6 +2767,7 @@ function addSelectorField(type) {
     `;
     
     container.insertAdjacentHTML('beforeend', fieldHtml);
+    console.log(`✅ [addSelectorField] فیلد جدید با موفقیت اضافه شد`);
 }
 
 // حذف فیلد سلکتور در فرم اضافه کردن
@@ -3236,12 +2780,22 @@ function removeSelectorField(type, counter) {
 
 // اضافه کردن فیلد سلکتور جدید در فرم ویرایش
 function addEditSelectorField(type) {
-    const container = document.getElementById(`edit${type.charAt(0).toUpperCase() + type.slice(1)}SelectorsContainer`);
+    const capitalizedType = type.charAt(0).toUpperCase() + type.slice(1);
+    const containerId = `edit${capitalizedType}SelectorsContainer`;
+    const container = document.getElementById(containerId);
     const counter = ++editSelectorCounters[type];
     
+    console.log(`🔧 [addEditSelectorField] اضافه کردن فیلد سلکتور برای نوع: ${type}, شماره: ${counter}`);
+    console.log(`📦 [addEditSelectorField] ID کانتینر: ${containerId}`);
+    
+    if (!container) {
+        console.error(`❌ [addEditSelectorField] کانتینر با ID '${containerId}' پیدا نشد`);
+        return;
+    }
+    
     const fieldHtml = `
-        <div class="input-group mt-2" id="edit${type.charAt(0).toUpperCase() + type.slice(1)}Selector${counter}">
-            <input type="text" class="form-control" placeholder="سلکتور ${type} ${counter}">
+        <div class="input-group mt-2" id="edit${capitalizedType}Selector${counter}">
+            <input type="text" class="form-control" id="edit${capitalizedType}SelectorInput${counter}" placeholder="سلکتور ${type} ${counter}" data-selector-type="${type}">
             <button type="button" class="btn btn-outline-danger" onclick="removeEditSelectorField('${type}', ${counter})">
                 <i class="fas fa-trash"></i>
             </button>
@@ -3249,6 +2803,7 @@ function addEditSelectorField(type) {
     `;
     
     container.insertAdjacentHTML('beforeend', fieldHtml);
+    console.log(`✅ [addEditSelectorField] فیلد جدید با موفقیت اضافه شد`);
 }
 
 // حذف فیلد سلکتور در فرم ویرایش
@@ -3261,40 +2816,91 @@ function removeEditSelectorField(type, counter) {
 
 // جمع‌آوری تمام سلکتورها از فرم
 function collectSelectors(type, isEdit = false) {
+    console.log(`🔍 [collectSelectors] شروع جمع‌آوری سلکتورها برای نوع: ${type}, حالت ویرایش: ${isEdit}`);
+    
     const prefix = isEdit ? 'edit' : '';
-    const capitalizedType = type.charAt(0).toUpperCase() + type.slice(1);
+    const capitalizedType = isEdit ? type.charAt(0).toUpperCase() + type.slice(1) : type;
     const selectorId = `${prefix}${capitalizedType}Selector`;
     const containerId = `${prefix}${capitalizedType}SelectorsContainer`;
     
+    console.log(`🎯 [collectSelectors] جستجو برای المنت با ID: ${selectorId}`);
+    console.log(`📦 [collectSelectors] جستجو برای کانتینر با ID: ${containerId}`);
+    
     const mainElement = document.getElementById(selectorId);
     if (!mainElement) {
-        console.warn(`Element with ID '${selectorId}' not found`);
+        console.warn(`❌ [collectSelectors] المنت با ID '${selectorId}' پیدا نشد`);
         return [];
     }
     
     const mainSelector = mainElement.value.trim();
+    console.log(`📝 [collectSelectors] مقدار سلکتور اصلی: '${mainSelector}'`);
     const selectors = [];
     
-    // همیشه مقدار اصلی را اضافه کن، حتی اگر خالی باشد
-    selectors.push(mainSelector);
-    
-    const container = document.getElementById(containerId);
-    if (container) {
-        const additionalInputs = container.querySelectorAll('input');
-        
-        additionalInputs.forEach(input => {
-            if (input.value.trim()) {
-                selectors.push(input.value.trim());
-            }
-        });
+    // فقط سلکتورهای غیر خالی را اضافه کن
+    if (mainSelector) {
+        selectors.push(mainSelector);
+        console.log(`✅ [collectSelectors] سلکتور اصلی اضافه شد: '${mainSelector}'`);
+    } else {
+        console.log(`⚠️ [collectSelectors] سلکتور اصلی خالی است`);
     }
     
+    const container = document.getElementById(containerId);
+    
+    if (container) {
+        console.log(`✅ [collectSelectors] کانتینر پیدا شد، جستجو برای inputهای اضافی...`);
+        const additionalInputs = container.querySelectorAll('input');
+        console.log(`📊 [collectSelectors] ${additionalInputs.length} input اضافی پیدا شد`);
+        
+        additionalInputs.forEach((input, index) => {
+            const inputValue = input.value.trim();
+            const inputId = input.id || 'بدون ID';
+            const selectorType = input.getAttribute('data-selector-type') || 'نامشخص';
+            console.log(`🔸 [collectSelectors] Input ${index + 1} - مقدار: '${inputValue}', ID: '${inputId}', نوع: '${selectorType}'`);
+            if (inputValue) {
+                selectors.push(inputValue);
+                console.log(`✅ [collectSelectors] Input ${index + 1} اضافه شد به لیست`);
+            } else {
+                console.log(`⚠️ [collectSelectors] Input ${index + 1} خالی است، نادیده گرفته شد`);
+            }
+        });
+    } else {
+        console.warn(`❌ [collectSelectors] کانتینر با ID '${containerId}' پیدا نشد`);
+    }
+    
+    // جستجوی اضافی برای فیلدهای داینامیک با ID های منحصر به فرد
+    console.log(`🔍 [collectSelectors] جستجوی اضافی برای فیلدهای داینامیک...`);
+    const dynamicInputs = document.querySelectorAll(`input[data-selector-type="${type}"]`);
+    console.log(`🎯 [collectSelectors] ${dynamicInputs.length} فیلد داینامیک پیدا شد`);
+    
+    dynamicInputs.forEach((input, index) => {
+        const inputValue = input.value.trim();
+        const inputId = input.id || 'بدون ID';
+        console.log(`🔹 [collectSelectors] فیلد داینامیک ${index + 1} - مقدار: '${inputValue}', ID: '${inputId}'`);
+        
+        // اطمینان از عدم تکرار
+        if (inputValue && !selectors.includes(inputValue)) {
+            selectors.push(inputValue);
+            console.log(`✅ [collectSelectors] فیلد داینامیک ${index + 1} اضافه شد`);
+        } else if (inputValue && selectors.includes(inputValue)) {
+            console.log(`⚠️ [collectSelectors] فیلد داینامیک ${index + 1} تکراری است`);
+        } else {
+            console.log(`⚠️ [collectSelectors] فیلد داینامیک ${index + 1} خالی است`);
+        }
+    });
+    
+    console.log(`🎉 [collectSelectors] نتیجه نهایی برای ${type}:`, selectors);
+    console.log(`📈 [collectSelectors] تعداد کل سلکتورها: ${selectors.length}`);
     return selectors;
 }
 
 // پر کردن فیلدهای سلکتور در فرم ویرایش
 function populateEditSelectors(type, selectors) {
-    if (!selectors) return;
+    console.log(`🔍 populateEditSelectors شروع شد برای ${type}:`, selectors);
+    
+    if (!selectors) {
+        console.log(`⚠️ هیچ سلکتوری برای ${type} یافت نشد`);
+        return;
+    }
     
     let selectorArray;
     
@@ -3303,36 +2909,51 @@ function populateEditSelectors(type, selectors) {
         try {
             // اگر JSON است
             selectorArray = JSON.parse(selectors);
+            console.log(`📋 JSON پارس شد برای ${type}:`, selectorArray);
         } catch (e) {
             // اگر رشته ساده است
             selectorArray = selectors.trim() ? [selectors] : [];
+            console.log(`📝 رشته ساده تبدیل شد برای ${type}:`, selectorArray);
         }
     } else if (Array.isArray(selectors)) {
         selectorArray = selectors;
+        console.log(`📊 آرایه دریافت شد برای ${type}:`, selectorArray);
     } else {
+        console.warn(`❌ نوع نامعتبر برای ${type}:`, typeof selectors);
         return;
     }
     
     const mainInput = document.getElementById(`edit${type.charAt(0).toUpperCase() + type.slice(1)}Selector`);
     const container = document.getElementById(`edit${type.charAt(0).toUpperCase() + type.slice(1)}SelectorsContainer`);
     
-    if (!mainInput || !container) return;
+    console.log(`🎯 المنت‌های یافت شده - mainInput:`, !!mainInput, `container:`, !!container);
+    
+    if (!mainInput || !container) {
+        console.error(`❌ المنت‌های مورد نیاز یافت نشدند برای ${type}`);
+        return;
+    }
     
     // پاک کردن فیلدهای قبلی
     container.innerHTML = '';
-    editSelectorCounters[type] = 0;
+    // شمارنده را صفر نمی‌کنیم چون قبلاً در clearAllEditSelectorFields صفر شده
+    console.log(`🧹 فیلدهای قبلی پاک شدند، شمارنده فعلی: ${editSelectorCounters[type]}`);
     
     // پر کردن فیلد اصلی
     if (selectorArray.length > 0) {
         mainInput.value = selectorArray[0];
+        console.log(`✅ فیلد اصلی ${type} پر شد:`, selectorArray[0]);
     }
     
     // اضافه کردن فیلدهای اضافی
     for (let i = 1; i < selectorArray.length; i++) {
         addEditSelectorField(type);
-        const newInput = container.querySelector('input:last-child');
+        // پیدا کردن آخرین input با ID منحصر به فرد
+        const newInput = container.querySelector(`input[id="edit${type.charAt(0).toUpperCase() + type.slice(1)}SelectorInput${editSelectorCounters[type]}"]`);
         if (newInput) {
             newInput.value = selectorArray[i];
+            console.log(`🔄 فیلد داینامیک ${type} شماره ${i} بارگذاری شد:`, selectorArray[i]);
+        } else {
+            console.warn(`⚠️ نتوانست فیلد داینامیک ${type} شماره ${i} را پیدا کند`);
         }
     }
 }
@@ -3358,29 +2979,14 @@ function clearAllEditSelectorFields() {
     });
 }
 
-// Event listeners
+// Event listener for article source filter
 document.addEventListener('DOMContentLoaded', function() {
-    // Article source filter
     const articleSourceSelect = document.getElementById('articleSource');
     if (articleSourceSelect) {
         articleSourceSelect.addEventListener('change', function() {
             loadArticles(1); // Reset to first page when filter changes
         });
     }
-    
-    // Log page size change
-    const logPageSizeSelect = document.getElementById('logPageSize');
-    if (logPageSizeSelect) {
-        logPageSizeSelect.addEventListener('change', function() {
-            loadLogs(1); // Reset to first page when page size changes
-        });
-    }
-    
-    // Setup logs auto refresh
-    setupLogsAutoRefresh();
-    
-    // Load log sources for filter
-    loadLogSources();
 });
 
 // ==================== SELECTOR BUILDER FUNCTIONS ====================
@@ -3408,7 +3014,7 @@ function startSelectorBuilder() {
     
     // باز کردن selector builder با URL مشخص شده
     const selectorBuilderUrl = `/admin/selector-builder.html?url=${encodeURIComponent(url)}`;
-    window.open(selectorBuilderUrl, '_blank');
+    window.location.href = selectorBuilderUrl;
 }
 
 // بارگذاری پیکربندی‌های ذخیره شده
@@ -3627,121 +3233,3 @@ document.addEventListener('DOMContentLoaded', function() {
         }
     };
 });
-
-// اضافه کردن WebSocket برای لاگ‌های realtime
-function setupLogsWebSocket() {
-    try {
-        // بستن اتصال قبلی اگر وجود دارد
-        if (logsWebSocket) {
-            logsWebSocket.close();
-        }
-
-        // ایجاد اتصال WebSocket جدید
-        const wsUrl = window.location.protocol === 'https:' ? 'wss:' : 'ws:';
-        logsWebSocket = new WebSocket(`${wsUrl}//${window.location.host}/ws/logs`);
-
-        logsWebSocket.onopen = function() {
-            console.log('🔌 اتصال WebSocket برای لاگ‌ها برقرار شد');
-            addRealtimeLog('🔌 اتصال WebSocket برقرار شد', 'success');
-        };
-
-        logsWebSocket.onmessage = function(event) {
-            try {
-                const data = JSON.parse(event.data);
-                handleRealtimeLog(data);
-            } catch (error) {
-                console.error('خطا در پردازش پیام WebSocket:', error);
-            }
-        };
-
-        logsWebSocket.onerror = function(error) {
-            console.error('خطا در WebSocket لاگ‌ها:', error);
-            addRealtimeLog('❌ خطا در اتصال WebSocket', 'error');
-        };
-
-        logsWebSocket.onclose = function() {
-            console.log('🔌 اتصال WebSocket لاگ‌ها بسته شد');
-            addRealtimeLog('🔌 اتصال WebSocket بسته شد', 'warning');
-            
-            // تلاش مجدد برای اتصال بعد از 5 ثانیه
-            setTimeout(() => {
-                if (document.getElementById('realtimeLogs')?.checked) {
-                    setupLogsWebSocket();
-                }
-            }, 5000);
-        };
-
-    } catch (error) {
-        console.error('خطا در راه‌اندازی WebSocket لاگ‌ها:', error);
-    }
-}
-
-// پردازش لاگ‌های realtime
-function handleRealtimeLog(data) {
-    const { type, message, source, timestamp, level } = data;
-    
-    let logMessage = message;
-    let logType = 'info';
-    
-    // تعیین نوع لاگ بر اساس level
-    switch(level) {
-        case 'error': logType = 'error'; break;
-        case 'warn': logType = 'warning'; break;
-        case 'success': logType = 'success'; break;
-        case 'debug': logType = 'debug'; break;
-        default: logType = 'info';
-    }
-    
-    // اضافه کردن اطلاعات منبع اگر موجود باشد
-    if (source) {
-        logMessage = `[${source}] ${logMessage}`;
-    }
-    
-    // اضافه کردن به نمایش realtime
-    addRealtimeLog(logMessage, logType);
-    
-    // به‌روزرسانی آمار اگر بخش لاگ‌ها فعال باشد
-    const logsSection = document.getElementById('logs');
-    if (logsSection && logsSection.style.display !== 'none') {
-        updateLogsStats();
-    }
-}
-
-// اضافه کردن لاگ به نمایش realtime
-function addRealtimeLog(message, type = 'info') {
-    const logsContainer = document.getElementById('realtimeLogs');
-    if (!logsContainer) return;
-    
-    const timestamp = new Date().toLocaleTimeString('fa-IR');
-    const logEntry = document.createElement('div');
-    logEntry.className = `log-entry log-${type}`;
-    
-    let icon = '📝';
-    switch(type) {
-        case 'success': icon = '✅'; break;
-        case 'error': icon = '❌'; break;
-        case 'warning': icon = '⚠️'; break;
-        case 'info': icon = 'ℹ️'; break;
-        case 'debug': icon = '🐛'; break;
-    }
-    
-    logEntry.innerHTML = `
-        <span class="log-time">[${timestamp}]</span>
-        <span class="log-icon">${icon}</span>
-        <span class="log-message">${message}</span>
-    `;
-    
-    logsContainer.appendChild(logEntry);
-    
-    // محدود کردن تعداد لاگ‌ها (حداکثر 1000)
-    const maxLogs = 1000;
-    while (logsContainer.children.length > maxLogs) {
-        logsContainer.removeChild(logsContainer.firstChild);
-    }
-    
-    // Auto scroll اگر فعال باشد
-    const autoScrollCheckbox = document.getElementById('autoScrollLogs');
-    if (autoScrollCheckbox && autoScrollCheckbox.checked) {
-        logsContainer.scrollTop = logsContainer.scrollHeight;
-    }
-}

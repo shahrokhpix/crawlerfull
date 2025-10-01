@@ -493,7 +493,7 @@ app.get("/api/farsnews", async (req, res) => {
     const maxArticles = parseInt(req.query.limit) || 10;
     const crawlDepth = parseInt(req.query.depth) || 0;
     
-    logger.info(`Legacy farsnews API called with limit=${maxArticles}, full=${crawlWithContent}, depth=${crawlDepth}`);
+    console.log(`🚀 Legacy farsnews API called with limit=${maxArticles}, full=${crawlWithContent}, depth=${crawlDepth}`);
     
     // Use UniversalCrawler instead of direct puppeteer
     const crawler = new UniversalCrawler('puppeteer');
@@ -507,26 +507,34 @@ app.get("/api/farsnews", async (req, res) => {
       followLinks: crawlDepth > 0
     };
     
-    // Get Farsnews source ID (should be 1 from database)
-    let sourceId = 1; // Default to Farsnews
+    // Get Farsnews source ID dynamically (fallback to first active)
+    let sourceId = null;
     
     try {
       const db = database.getDb();
       const sourceResult = await db.query(
-        "SELECT id FROM news_sources WHERE name = 'فارس‌نیوز' AND active = true LIMIT 1"
+        "SELECT id FROM news_sources WHERE name IN ('فارس‌نیوز','farsnews','farsnews.ir') AND active = true ORDER BY id ASC LIMIT 1"
       );
       if (sourceResult.rows && sourceResult.rows.length > 0) {
         sourceId = sourceResult.rows[0].id;
+      } else {
+        const anyActive = await db.query("SELECT id FROM news_sources WHERE active = true ORDER BY id ASC LIMIT 1");
+        sourceId = anyActive.rows?.[0]?.id || null;
       }
     } catch (dbError) {
-      logger.warn('Could not get source ID from database, using default:', dbError.message);
+      logger.warn('Could not get source ID from database:', dbError.message);
     }
     
-    logger.info(`Starting crawl with source ID: ${sourceId}, options:`, options);
+    if (!sourceId) {
+      return res.status(404).json({ success: false, message: 'هیچ منبع فعالی یافت نشد' });
+    }
+    
+    console.log(`🎯 Starting crawl with source ID: ${sourceId}`);
+    console.log(`⚙️ Options:`, options);
     
     const result = await crawler.crawlSource(sourceId, options);
     
-    logger.info('Crawl completed:', {
+    console.log(`✅ Crawl completed:`, {
       success: result.success,
       source: result.source,
       totalProcessed: result.totalProcessed,
@@ -603,28 +611,53 @@ app.post('/api/articles/mark-read', async (req, res) => {
 app.get('/api/stats', async (req, res) => {
   try {
     const queries = {
-      totalArticles: 'SELECT COUNT(*) as count FROM articles',
-      newArticles: 'SELECT COUNT(*) as count FROM articles WHERE is_new = true',
-      recentCrawls: 'SELECT * FROM crawl_history ORDER BY crawl_date DESC LIMIT 10'
+      totalArticles: "SELECT COUNT(*)::int as count FROM articles",
+      // Treat 'new' as unread in our schema
+      newArticles: "SELECT COUNT(*)::int as count FROM articles WHERE is_read = false",
+      // Count recent crawls in last 24 hours
+      recentCrawls: "SELECT COUNT(*)::int as count FROM crawl_history WHERE created_at >= NOW() - INTERVAL '24 hours'",
+      // Top sources by article count
+      topSources: `
+        SELECT ns.id, ns.name, COUNT(a.id)::int AS article_count
+        FROM news_sources ns
+        LEFT JOIN articles a ON a.source_id = ns.id
+        GROUP BY ns.id, ns.name
+        ORDER BY article_count DESC
+        LIMIT 5
+      `,
+      // Recent activity messages from crawl_logs
+      recentActivity: `
+        SELECT message, created_at as timestamp
+        FROM crawl_logs
+        ORDER BY id DESC
+        LIMIT 10
+      `
     };
-    
+
     const results = {};
-    
+
     // Execute queries in parallel
-    const [totalArticlesResult, newArticlesResult, recentCrawlsResult] = await Promise.all([
+    const [
+      totalArticlesResult,
+      newArticlesResult,
+      recentCrawlsCountResult,
+      topSourcesResult,
+      recentActivityResult,
+    ] = await Promise.all([
       db.query(queries.totalArticles),
       db.query(queries.newArticles),
-      db.query(queries.recentCrawls)
+      db.query(queries.recentCrawls),
+      db.query(queries.topSources),
+      db.query(queries.recentActivity),
     ]);
-    
+
     results.totalArticles = parseInt(totalArticlesResult.rows?.[0]?.count || 0);
     results.newArticles = parseInt(newArticlesResult.rows?.[0]?.count || 0);
-    results.recentCrawls = recentCrawlsResult;
-    
-    res.json({
-      success: true,
-      stats: results
-    });
+    results.recentCrawls = parseInt(recentCrawlsCountResult.rows?.[0]?.count || 0);
+    results.topSources = topSourcesResult.rows || [];
+    results.recentActivity = recentActivityResult.rows || [];
+
+    res.json({ success: true, stats: results });
   } catch (error) {
     res.status(500).json({ error: error.message });
   }
@@ -810,3 +843,4 @@ app.listen(PORT, async () => {
   // شروع زمانبندی‌های پاک‌سازی
   await cleanup.startAllJobs();
 });
+

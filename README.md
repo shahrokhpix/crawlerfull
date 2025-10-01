@@ -1,240 +1,89 @@
-# 🚀 Advanced News Crawler
+# Universal News Crawler
 
-A production-ready news crawling platform with an admin panel, full REST API, PostgreSQL, Redis, WebSockets, and first-class Docker support.
+یک سیستم کرال اخبار پیشرفته با قابلیت پشتیبانی از انواع مختلف وب‌سایت‌ها و درایورها.
 
-## 🌟 Key Features
+## 🚀 ویژگی‌ها
 
-- **Docker-first**: One-command setup, reproducible builds (Node 20 Alpine)
-- **Universal crawler**: Pluggable news sources with simple CSS selectors
-- **Simple selectors**: Easy-to-use CSS selectors (.pb-3 a, .prosed, .pb-2)
-- **Admin panel**: Manage sources, schedules, logs
-- **Real-time logs**: WebSocket streaming
-- **PostgreSQL + Redis**: Reliable storage and caching
-- **Robust logging and scheduling**
-- **Iran-optimized**: Built with Iranian npm mirrors for better reliability
+- **پشتیبانی از چندین درایور:** Puppeteer, Selenium, Playwright, Cheerio
+- **مدیریت هوشمند Rate Limiting**
+- **پنل ادمین کامل** برای مدیریت منابع خبری
+- **پشتیبانی از PostgreSQL و Redis**
+- **سیستم لاگینگ پیشرفته**
+- **API کامل** برای مدیریت و کرال
 
-## 🎯 Simple CSS Selectors
+## 📋 پیش‌نیازها
 
-The crawler now uses simple, easy-to-understand CSS selectors:
+- Docker و Docker Compose
+- Node.js 18+
+- PostgreSQL (اختیاری - در Docker موجود است)
 
-```sql
--- Example selectors for FarsNews
-list_selector: '.pb-3 a'     -- Extract links from .pb-3 containers
-title_selector: '.prosed'    -- Extract article titles
-content_selector: '.pb-2'    -- Extract article content
+## 🛠️ نصب و راه‌اندازی
+
+### 1. کلون کردن پروژه
+```bash
+git clone <repository-url>
+cd farsnewslatest1
 ```
 
-### How it works:
-1. **List selector** (`.pb-3 a`): Finds all `<a>` tags inside elements with class `.pb-3`
-2. **Title selector** (`.prosed`): Extracts text from elements with class `.prosed`
-3. **Content selector** (`.pb-2`): Extracts text from elements with class `.pb-2`
-
-### Benefits:
-- ✅ **Simple and readable**: Easy to understand and modify
-- ✅ **Flexible**: Can be easily changed for different websites
-- ✅ **Reliable**: Works consistently across different page structures
-- ✅ **Maintainable**: No complex regex or XPath needed
-
-## ⚙️ Prerequisites
-- Docker 20.10+
-- Docker Compose 2.0+
-
-## 🚀 Quick Start (Recommended)
-
+### 2. تنظیم متغیرهای محیطی
 ```bash
-# 1) Clone
-git clone https://github.com/shahrokhpix/crawlerfull.git
-cd crawlerfull
-
-# 2) Environment
 cp .env.example .env
-# Edit .env if needed (DB_PASSWORD, ADMIN credentials, etc.)
-
-# 3) Build and run (Linux/macOS)
-chmod +x docker-start.sh
-./docker-start.sh --iran   # uses Node 20 Alpine + Iran mirrors
-
-# Windows (PowerShell or CMD)
-./docker-start.bat --iran
+# فایل .env را ویرایش کنید
 ```
 
-Service access (default host):
-- Admin Panel: http://localhost:3005/admin
-- API: http://localhost:3005/api
-- RSS: http://localhost:3005/rss
-- PostgreSQL: localhost:5433 (db=crawler_db user=crawler_user)
-- Redis: localhost:6380
-
-Ports are mapped as follows:
-- App 3005 -> container 3004
-- PostgreSQL 5433 -> 5432
-- Redis 6380 -> 6379
-
-## 🔌 API Endpoints
-
-### Legacy Endpoint (FarsNews)
+### 3. راه‌اندازی با Docker
 ```bash
-# Get latest articles
-curl "http://localhost:3005/api/farsnews?limit=5&full=true"
-
-# Parameters:
-# - limit: Number of articles (default: 10, max: 100)
-# - full: Include full content (true/false)
-# - depth: Crawl depth (0-5)
+docker-compose up -d
 ```
 
-### Universal Crawler API
-```bash
-# Crawl any source
-curl -X POST "http://localhost:3005/api/crawler/crawl" \
-  -H "Content-Type: application/json" \
-  -d '{"sourceId": 1, "limit": 5, "fullContent": true}'
+### 4. دسترسی به پنل ادمین
+- **URL:** http://localhost:3004/admin
+- **نام کاربری:** admin
+- **رمز عبور:** admin123
 
-# Test selectors
-curl -X POST "http://localhost:3005/api/crawler/test-selector" \
-  -H "Content-Type: application/json" \
-  -d '{"url": "https://www.farsnews.ir/showcase", "selector": ".pb-3 a", "type": "list"}'
-```
+## 🔧 تنظیمات
 
-### Health Check
-```bash
-curl "http://localhost:3005/api/health"
-```
+### متغیرهای محیطی مهم:
+- `DB_PASSWORD`: رمز عبور دیتابیس PostgreSQL
+- `ADMIN_USERNAME`: نام کاربری ادمین
+- `ADMIN_PASSWORD`: رمز عبور ادمین
+- `NODE_ENV`: محیط اجرا (production/development)
 
-### Admin Authentication
-```bash
-# Login (default: admin/admin123)
-curl -X POST "http://localhost:3005/api/auth/login" \
-  -H "Content-Type: application/json" \
-  -d '{"username": "admin", "password": "admin123"}'
-```
+## 📊 API Endpoints
 
-## 🧪 Testing & Debugging
+### احراز هویت
+- `POST /api/auth/login` - ورود ادمین
 
-### Test Simple Selectors
-```bash
-# Test selectors on actual page
-docker exec crawler_app node /app/test-simple-selectors.js
+### مدیریت منابع خبری
+- `GET /api/sources` - دریافت لیست منابع
+- `POST /api/sources` - افزودن منبع جدید
+- `PUT /api/sources/:id` - ویرایش منبع
+- `DELETE /api/sources/:id` - حذف منبع
 
-# Debug crawl process
-docker exec crawler_app node /app/debug-crawl.js
-```
+### کرال
+- `POST /api/crawler/crawl` - شروع کرال
+- `POST /api/crawler/test-selector` - تست سلکتور
+- `GET /api/logs` - مشاهده لاگ‌ها
 
-### Database Queries
-```bash
-# Check current selectors
-docker exec crawler_postgres psql -U crawler_user -d crawler_db -c "SELECT name, list_selector, title_selector, content_selector FROM news_sources;"
+### مقالات
+- `GET /api/articles` - دریافت مقالات
+- `GET /api/articles?new=true` - مقالات جدید
+- `GET /rss` - فید RSS
 
-# Update selectors
-docker exec crawler_postgres psql -U crawler_user -d crawler_db -c "UPDATE news_sources SET list_selector = '.pb-3 a', title_selector = '.prosed', content_selector = '.pb-2' WHERE name = 'فارس‌نیوز';"
-```
+## 🎯 استفاده
 
-### View Logs
-```bash
-# Container logs
-docker-compose -f docker-compose-simple.yml logs -f crawler
+1. **مدیریت منابع خبری:** از طریق پنل ادمین منابع خبری را اضافه کنید
+2. **تنظیم سلکتورها:** برای هر منبع سلکتورهای CSS مناسب تعریف کنید
+3. **انتخاب درایور:** بر اساس پیچیدگی سایت، درایور مناسب انتخاب کنید
+4. **شروع کرال:** از طریق API یا پنل ادمین کرال را شروع کنید
 
-# Application logs
-docker exec crawler_app tail -f /app/logs/crawler-$(date +%Y-%m-%d).log
-```
+## 🔍 عیب‌یابی
 
-### Manual Testing
-```bash
-# Test legacy endpoint
-curl "http://localhost:3005/api/farsnews?limit=2&full=true"
+### مشکلات رایج:
+1. **خطای اتصال دیتابیس:** رمز عبور PostgreSQL را بررسی کنید
+2. **کرال ناموفق:** سلکتورها و درایور را بررسی کنید
+3. **Rate Limiting:** تنظیمات محدودیت نرخ را بررسی کنید
 
-# Test universal crawler
-curl -X POST "http://localhost:3005/api/crawler/crawl" \
-  -H "Content-Type: application/json" \
-  -d '{"sourceId": 1, "limit": 2, "fullContent": true}'
-```
+## 📝 لایسنس
 
-## 🇮🇷 Iran-friendly build
-We provide an Iran-optimized build path (Dockerfile.iran) using `npmmirror` to improve reliability.
-- Linux/macOS: `./docker-start.sh --iran`
-- Windows: `docker-start.bat --iran`
-
-## 🧰 Other run modes
-```bash
-./docker-start.sh --full          # default full stack
-./docker-start.sh --no-nginx      # run without nginx
-./docker-start.sh --pm2           # pm2 profile
-./docker-start.sh --dev           # compose + compose.dev
-./docker-start.sh --no-puppeteer  # build without puppeteer
-./docker-start.sh --alpine        # force Dockerfile.alpine
-./docker-start.sh --clean         # prune and rebuild
-```
-
-Windows equivalents: pass the same flags to `docker-start.bat`.
-
-## 🔐 Database bootstrap
-- On first run, the init script creates both the role and database if missing:
-  - Role: `crawler_user`
-  - Database: `crawler_db`
-  - Password: from `.env` (`DB_PASSWORD`, default `your_secure_password`)
-- Schema, indices, seed data, and default admin user are created idempotently.
-
-Manual DB check:
-```bash
-docker-compose exec postgres psql -U crawler_user -d crawler_db -c "\dt"
-```
-
-## 🧪 Tests
-```bash
-cd test
-node quick-test.js
-node stress-test.js
-node advanced-stress-test.js
-```
-
-## 📚 More Docs
-- Docker guide: README-Docker.md
-- Server deployment: SERVER_DEPLOYMENT_GUIDE.md
-
-## �� Troubleshooting
-
-- **Health check / app restart loop**:
-  - Ensure ports 3005, 5433, 6380 are free
-  - Use clean start: `./docker-start.sh --clean`
-- **PostgreSQL role/database missing or corrupted data volume**:
-  - `chmod +x fix-postgres.sh && ./fix-postgres.sh`
-- **Slow installs from Iran**:
-  - Use `--iran` mode to enable mirrors
-- **Crawling returns 0 articles**:
-  - Check selector syntax in database: `docker exec crawler_postgres psql -U crawler_user -d crawler_db -c "SELECT list_selector, title_selector, content_selector FROM news_sources WHERE name = 'فارس‌نیوز';"`
-  - Update selectors if needed: `docker exec crawler_postgres psql -U crawler_user -d crawler_db -c "UPDATE news_sources SET list_selector = '.pb-3 a', title_selector = '.prosed', content_selector = '.pb-2' WHERE name = 'فارس‌نیوز';"`
-- **Invalid CSS selector errors**:
-  - Use simple selectors like `.pb-3 a` instead of complex ones
-  - Test selectors manually: `docker exec crawler_app node /app/test-simple-selectors.js`
-- **PowerShell ampersand errors**:
-  - Use `Start-Process` or run commands without `&` in PowerShell
-  - Use CMD instead of PowerShell for Docker commands
-
-## 📦 Project Structure
-```
-project/
-├── index.js                 # Main app
-├── config/                  # Configs
-├── services/                # Core services
-├── routes/                  # API routes
-├── middleware/              # Middlewares
-├── public/                  # Admin UI
-├── scripts/                 # DB init, helpers
-├── logs/                    # Logs
-├── utils/                   # Utilities
-├── test/                    # Tests
-├── docker-compose.yml       # Docker Compose
-├── Dockerfile*              # Build variants (iran, alpine, no-puppeteer)
-└── docker-start.*           # Non-interactive start scripts
-```
-
-## 🔒 Security checklist
-- Change default admin password in `.env`
-- If exposed to the internet, place behind HTTPS (nginx) and restrict access
-- Rotate JWT/Session secrets
-
-## 🤝 Contributing
-1) Fork  2) `git checkout -b feature/...`  3) Commit  4) Push  5) PR
-
-## 📄 License
-MIT
+این پروژه تحت لایسنس MIT منتشر شده است.

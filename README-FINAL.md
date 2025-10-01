@@ -78,7 +78,7 @@ pm2 stop all
 ### ✅ PostgreSQL:
 - **دیتابیس**: PostgreSQL 15
 - **پورت**: 5433
-- **کاربر**: farsnews_user
+- **کاربر**: crawler_user
 - **دیتابیس**: farsnews_crawler_spider_db
 - **وضعیت**: ✅ در حال اجرا
 
@@ -123,17 +123,17 @@ node ci-test.js
 
 ### Backup:
 ```bash
-docker exec farsnews_postgres pg_dump -U farsnews_user farsnews_crawler_spider_db > backup.sql
+docker exec farsnews_postgres pg_dump -U crawler_user farsnews_crawler_spider_db > backup.sql
 ```
 
 ### Restore:
 ```bash
-docker exec -i farsnews_postgres psql -U farsnews_user farsnews_crawler_spider_db < backup.sql
+docker exec -i farsnews_postgres psql -U crawler_user farsnews_crawler_spider_db < backup.sql
 ```
 
 ### اتصال مستقیم:
 ```bash
-docker exec -it farsnews_postgres psql -U farsnews_user -d farsnews_crawler_spider_db
+docker exec -it farsnews_postgres psql -U crawler_user -d farsnews_crawler_spider_db
 ```
 
 ## 📈 عملکرد

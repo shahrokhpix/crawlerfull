@@ -1,18 +1,31 @@
-const Database = require('./config/database');
+const connectionPool = require('./services/connectionPool');
 
-async function testDatabase() {
+async function testDb() {
   try {
-    const db = Database.getDb();
-    console.log('Database connection successful');
+    console.log('🔍 تست اتصال دیتابیس...');
     
-    const result = await db.query("SELECT id, name, base_url, list_selector FROM news_sources WHERE name = 'فارس‌نیوز'");
-    console.log('FarsNews source:', JSON.stringify(result.rows, null, 2));
+    const query = 'SELECT * FROM admin_users WHERE username = $1 AND active = true';
+    const result = await connectionPool.query(query, ['admin']);
     
-    process.exit(0);
+    console.log('✅ نتیجه query:', result);
+    console.log('📊 تعداد رکوردها:', result.length);
+    
+    if (result.length > 0) {
+      console.log('👤 کاربر یافت شد:', {
+        id: result[0].id,
+        username: result[0].username,
+        email: result[0].email,
+        active: result[0].active
+      });
+    } else {
+      console.log('❌ کاربر یافت نشد');
+    }
+    
   } catch (error) {
-    console.error('Database error:', error.message);
-    process.exit(1);
+    console.error('❌ خطا:', error);
+  } finally {
+    await connectionPool.shutdown();
   }
 }
 
-testDatabase(); 
+testDb(); 

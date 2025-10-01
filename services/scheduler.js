@@ -16,7 +16,7 @@ class Scheduler {
     console.log(`📋 ${schedules.length} زمان‌بندی یافت شد`);
     
     schedules.forEach(schedule => {
-      if (schedule.is_active) {
+      if (schedule.active) {
         console.log(`▶️ شروع زمان‌بندی ID=${schedule.id}, Cron="${schedule.cron_expression}"`);
         this.startJob(schedule);
       } else {
@@ -26,11 +26,6 @@ class Scheduler {
   }
 
   startJob(schedule) {
-    if (!schedule || !schedule.id) {
-      console.error('❌ زمان‌بندی نامعتبر یا فاقد شناسه');
-      return;
-    }
-    
     if (this.jobs[schedule.id]) {
       this.jobs[schedule.id].stop();
     }
@@ -81,7 +76,8 @@ class Scheduler {
         console.error(`❌ خطا در کرال زمان‌بندی شده برای منبع ${freshSchedule.source_id}:`, error.message);
       }
     }, {
-      scheduled: false // شروع دستی
+      scheduled: false,
+      timezone: 'Asia/Tehran'
     });
 
     // شروع job
@@ -150,8 +146,7 @@ class Scheduler {
   async getAllSchedules() {
     try {
       const query = `
-        SELECT s.*, ns.name as source_name,
-               s.active as is_active
+        SELECT s.*, ns.name as source_name 
         FROM schedules s 
         LEFT JOIN news_sources ns ON s.source_id = ns.id 
         ORDER BY s.created_at DESC
@@ -168,7 +163,7 @@ class Scheduler {
       const schedulesWithNextRun = rows.map(schedule => {
         let next_run = null;
         
-        if (schedule.is_active && cron.validate(schedule.cron_expression)) {
+        if (schedule.active && cron.validate(schedule.cron_expression)) {
           try {
             // محاسبه تقریبی زمان بعدی اجرا
              next_run = this.calculateNextRun(schedule.cron_expression);
@@ -194,14 +189,15 @@ class Scheduler {
   async getScheduleById(id) {
     try {
       const query = `
-        SELECT s.*, ns.name as source_name,
-               s.active as is_active
+        SELECT s.*, ns.name as source_name 
         FROM schedules s 
         LEFT JOIN news_sources ns ON s.source_id = ns.id 
         WHERE s.id = $1
       `;
+      console.log('[Scheduler] getScheduleById called with id=', id);
       const result = await this.db.query(query, [id]);
       const rows = result.rows || [];
+      console.log('[Scheduler] getScheduleById rows length=', rows.length);
       return rows[0] || null;
     } catch (err) {
       throw err;
@@ -218,17 +214,20 @@ class Scheduler {
     } = crawlSettings;
 
     try {
-          const query = `
-      INSERT INTO schedules 
-      (source_id, cron_expression, active, crawl_depth, full_content, article_limit, timeout_ms, follow_links)
-      VALUES ($1, $2, $3, $4, $5, $6, $7, $8)
-      RETURNING id
-    `;
+      const query = `
+        INSERT INTO schedules 
+        (source_id, cron_expression, active, crawl_depth, full_content, article_limit, timeout_ms, follow_links) 
+        VALUES ($1, $2, $3, $4, $5, $6, $7, $8)
+        RETURNING id
+      `;
       const result = await this.db.query(query, [
         sourceId, cronExpression, isActive, crawl_depth, full_content, article_limit, timeout_ms, follow_links
       ]);
       const rows = result.rows || [];
-      return { id: rows[0]?.id };
+      if (rows.length === 0) {
+        throw new Error('خطا در ایجاد زمان‌بندی: هیچ رکوردی برگردانده نشد');
+      }
+      return { id: rows[0].id };
     } catch (err) {
       throw err;
     }
@@ -255,10 +254,7 @@ class Scheduler {
         sourceId, cronExpression, isActive, crawl_depth, full_content, 
         article_limit, timeout_ms, follow_links, id
       ]);
-      
-      // بازگرداندن زمان‌بندی به‌روزرسانی شده
-      const updatedSchedule = await this.getScheduleById(id);
-      return updatedSchedule;
+      return { success: true };
     } catch (err) {
       throw err;
     }

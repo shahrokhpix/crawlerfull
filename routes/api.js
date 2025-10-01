@@ -139,6 +139,105 @@ router.delete('/database/clear', auth.verifyToken, async (req, res, next) => {
 });
 
 // تخلیه کامل تمام داده‌های دیتابیس (clear-all)
+router.post('/database/clear-all', auth.verifyToken, async (req, res, next) => {
+  try {
+    let articlesDeleted = 0;
+    let historyDeleted = 0;
+    let logsDeleted = 0;
+    let crawlLogsDeleted = 0;
+    let schedulesDeleted = 0;
+    let sourcesDeleted = 0;
+    
+    // حذف تمام مقالات
+    try {
+      const articlesResult = await database.db.query('DELETE FROM articles');
+      articlesDeleted = articlesResult.rowCount || 0;
+      logger.info(`تعداد ${articlesDeleted} مقاله حذف شد`);
+    } catch (err) {
+      logger.error('خطا در حذف مقالات:', err);
+      return res.status(500).json({
+        success: false,
+        message: 'خطا در حذف مقالات: ' + err.message
+      });
+    }
+    
+    // حذف تمام تاریخچه کرال
+    try {
+      const historyResult = await database.db.query('DELETE FROM crawl_history');
+      historyDeleted = historyResult.rowCount || 0;
+      logger.info(`تعداد ${historyDeleted} رکورد تاریخچه کرال حذف شد`);
+    } catch (err) {
+      logger.error('خطا در حذف تاریخچه کرال:', err);
+      return res.status(500).json({
+        success: false,
+        message: 'خطا در حذف تاریخچه کرال: ' + err.message
+      });
+    }
+    
+    // حذف تمام لاگ‌های کرال
+    try {
+      const crawlLogsResult = await database.db.query('DELETE FROM crawl_logs');
+      crawlLogsDeleted = crawlLogsResult.rowCount || 0;
+      logger.info(`تعداد ${crawlLogsDeleted} لاگ کرال حذف شد`);
+    } catch (err) {
+      logger.warn('خطا در حذف لاگ‌های کرال:', err.message);
+      crawlLogsDeleted = 0;
+    }
+    
+    // حذف تمام لاگ‌های عملیات
+    try {
+      const logsResult = await database.db.query('DELETE FROM operation_logs');
+      logsDeleted = logsResult.rowCount || 0;
+      if (logsDeleted > 0) {
+        logger.info(`تعداد ${logsDeleted} لاگ عملیات حذف شد`);
+      }
+    } catch (err) {
+      logger.warn('خطا در حذف لاگ‌های عملیات:', err.message);
+      logsDeleted = 0;
+    }
+    
+    // حذف تمام زمان‌بندی‌ها
+    try {
+      const schedulesResult = await database.db.query('DELETE FROM schedules');
+      schedulesDeleted = schedulesResult.rowCount || 0;
+      logger.info(`تعداد ${schedulesDeleted} زمان‌بندی حذف شد`);
+    } catch (err) {
+      logger.warn('خطا در حذف زمان‌بندی‌ها:', err.message);
+      schedulesDeleted = 0;
+    }
+    
+    // حذف تمام منابع خبری
+    try {
+      const sourcesResult = await database.db.query('DELETE FROM news_sources');
+      sourcesDeleted = sourcesResult.rowCount || 0;
+      logger.info(`تعداد ${sourcesDeleted} منبع خبری حذف شد`);
+    } catch (err) {
+      logger.warn('خطا در حذف منابع خبری:', err.message);
+      sourcesDeleted = 0;
+    }
+    
+    logger.success('تخلیه کامل تمام داده‌های دیتابیس با موفقیت انجام شد');
+    
+    res.json({
+      success: true,
+      message: 'تخلیه کامل تمام داده‌های دیتابیس با موفقیت انجام شد',
+      details: {
+        articlesDeleted,
+        historyDeleted,
+        crawlLogsDeleted,
+        logsDeleted,
+        schedulesDeleted,
+        sourcesDeleted,
+        totalDeleted: articlesDeleted + historyDeleted + crawlLogsDeleted + logsDeleted + schedulesDeleted + sourcesDeleted
+      }
+    });
+    
+  } catch (error) {
+    next(error);
+  }
+});
+
+// تخلیه کامل تمام داده‌های دیتابیس (clear-all) - DELETE method برای سازگاری
 router.delete('/database/clear-all', auth.verifyToken, async (req, res, next) => {
   try {
     let articlesDeleted = 0;
@@ -298,10 +397,11 @@ router.get('/schedules/:id', auth.verifyToken, async (req, res, next) => {
   try {
     const schedule = await scheduler.getScheduleById(req.params.id);
     if (schedule) {
-      // اطمینان از وجود فیلد is_active
+      // اطمینان از وجود فیلد active
       const formattedSchedule = {
         ...schedule,
-        is_active: schedule.is_active || schedule.active
+        active: schedule.active || schedule.is_active,
+        is_active: schedule.active || schedule.is_active
       };
       res.json(formattedSchedule);
     } else {
@@ -459,18 +559,54 @@ function createSourceFeed(articles, source, req, feedType = 'rss') {
   });
 
   articles.forEach(article => {
+    // ساخت محتوای کامل با lead و router
+    let fullDescription = '';
+    let fullContent = '';
+    
+    // اضافه کردن lead (خلاصه) در صورت وجود
+    if (article.lead && article.lead.trim()) {
+      fullDescription += `<p><strong>خلاصه:</strong> ${article.lead}</p>`;
+      fullContent += `<div class="lead"><strong>خلاصه:</strong> ${article.lead}</div>`;
+    }
+    
+    // اضافه کردن router (دسته‌بندی) در صورت وجود
+    if (article.router && article.router.trim()) {
+      fullDescription += `<p><strong>دسته‌بندی:</strong> ${article.router}</p>`;
+      fullContent += `<div class="category"><strong>دسته‌بندی:</strong> ${article.router}</div>`;
+    }
+    
+    // اضافه کردن محتوای اصلی
+    if (article.content && article.content.trim()) {
+      fullDescription += article.content;
+      fullContent += `<div class="content">${article.content}</div>`;
+    } else if (article.title) {
+      fullDescription += article.title;
+      fullContent += `<div class="content">${article.title}</div>`;
+    }
+    
+    // اگر هیچ محتوایی نداشتیم، پیام پیش‌فرض
+    if (!fullDescription.trim()) {
+      fullDescription = 'محتوای خلاصه در دسترس نیست';
+      fullContent = 'محتوای کامل در دسترس نیست';
+    }
+    
     feed.addItem({
       title: article.title || 'بدون عنوان',
       id: article.link || `${baseUrl}/article/${article.id}`,
       link: article.link || `${baseUrl}/article/${article.id}`,
-      description: article.content || article.title || 'محتوای خلاصه در دسترس نیست',
-      content: article.content || article.title || 'محتوای کامل در دسترس نیست',
+      description: fullDescription,
+      content: fullContent,
       author: [{
         name: source.name,
         link: source.base_url || baseUrl
       }],
       date: article.created_at ? moment(article.created_at).tz('Asia/Tehran').toDate() : new Date(),
-      image: article.image_url || null
+      image: article.image_url || null,
+      // اضافه کردن فیلدهای سفارشی برای RSS
+      custom_elements: [
+        ...(article.lead ? [{ 'lead': article.lead }] : []),
+        ...(article.router ? [{ 'category': article.router }] : [])
+      ]
     });
   });
 
@@ -498,7 +634,7 @@ router.get('/sources/:id/rss', async (req, res, next) => {
       return res.status(404).json({ success: false, message: 'منبع یافت نشد' });
     }
 
-    const feed = createSourceFeed(articles, source, req, 'rss');
+    const feed = createSourceFeed(articles.rows || [], source, req, 'rss');
     res.set('Content-Type', 'application/rss+xml; charset=utf-8');
     res.send(feed.rss2());
 
@@ -528,7 +664,7 @@ router.get('/sources/:id/atom', async (req, res, next) => {
       return res.status(404).json({ success: false, message: 'منبع یافت نشد' });
     }
 
-    const feed = createSourceFeed(articles, source, req, 'atom');
+    const feed = createSourceFeed(articles.rows || [], source, req, 'atom');
     res.set('Content-Type', 'application/atom+xml; charset=utf-8');
     res.send(feed.atom1());
 
@@ -558,7 +694,7 @@ router.get('/sources/:id/feed.json', async (req, res, next) => {
       return res.status(404).json({ success: false, message: 'منبع یافت نشد' });
     }
 
-    const feed = createSourceFeed(articles, source, req, 'json');
+    const feed = createSourceFeed(articles.rows || [], source, req, 'json');
     res.set('Content-Type', 'application/feed+json; charset=utf-8');
     res.send(feed.json1());
 
@@ -615,18 +751,36 @@ router.get('/sources/:id', auth.verifyToken, async (req, res, next) => {
 
 // اضافه کردن منبع جدید
 router.post('/sources', auth.verifyToken, validateSelectors, async (req, res, next) => {
+  console.log('🔥 [API] درخواست افزودن منبع جدید دریافت شد');
+  console.log('📋 [API] داده‌های دریافتی از کلاینت:', JSON.stringify(req.body, null, 2));
+  
   const { 
     name, base_url, list_selector, title_selector, content_selector, link_selector, 
     lead_selector, router_selector, title_selectors, content_selectors, 
     lead_selectors, router_selectors, driver_type 
   } = req.body;
   
+  console.log('🔍 [API] سلکتورهای چندگانه دریافتی:');
+  console.log('  📝 title_selectors:', title_selectors);
+  console.log('  📄 content_selectors:', content_selectors);
+  console.log('  📰 lead_selectors:', lead_selectors);
+  console.log('  👤 router_selectors:', router_selectors);
+  
+  console.log('🔍 [API] سلکتورهای اصلی دریافتی:');
+  console.log('  📝 title_selector:', title_selector);
+  console.log('  📄 content_selector:', content_selector);
+  console.log('  📰 lead_selector:', lead_selector);
+  console.log('  👤 router_selector:', router_selector);
+  
   if (!name || !base_url) {
+    console.log('❌ [API] خطا: فیلدهای الزامی خالی هستند');
     return res.status(400).json({
       success: false,
       message: 'نام و URL پایه الزامی است'
     });
   }
+  
+  console.log('✅ [API] اعتبارسنجی اولیه موفق بود');
   
   try {
     const db = database.db;
@@ -650,14 +804,35 @@ router.post('/sources', auth.verifyToken, validateSelectors, async (req, res, ne
       timestamp: moment().tz('Asia/Tehran').format('YYYY-MM-DD HH:mm:ss')
     });
 
-    const result = await db.query(query, [
+    console.log('💾 [API] آماده‌سازی داده‌ها برای ذخیره در دیتابیس:');
+    const dbParams = [
       name, base_url, list_selector, 
       title_selector || '', content_selector || '', link_selector || '',
       lead_selector || '', router_selector || '',
       title_selectors || '[]', content_selectors || '[]',
       lead_selectors || '[]', router_selectors || '[]',
       driver_type || 'puppeteer'
-    ]);
+    ];
+    
+    console.log('📊 [API] پارامترهای نهایی برای دیتابیس:');
+    console.log('  1. name:', dbParams[0]);
+    console.log('  2. base_url:', dbParams[1]);
+    console.log('  3. list_selector:', dbParams[2]);
+    console.log('  4. title_selector:', dbParams[3]);
+    console.log('  5. content_selector:', dbParams[4]);
+    console.log('  6. link_selector:', dbParams[5]);
+    console.log('  7. lead_selector:', dbParams[6]);
+    console.log('  8. router_selector:', dbParams[7]);
+    console.log('  9. title_selectors:', dbParams[8]);
+    console.log('  10. content_selectors:', dbParams[9]);
+    console.log('  11. lead_selectors:', dbParams[10]);
+    console.log('  12. router_selectors:', dbParams[11]);
+    console.log('  13. driver_type:', dbParams[12]);
+    
+    console.log('🚀 [API] اجرای کوئری دیتابیس...');
+    const result = await db.query(query, dbParams);
+    console.log('✅ [API] کوئری دیتابیس با موفقیت اجرا شد');
+    console.log('📋 [API] نتیجه کوئری:', result.rows);
 
     const rows = result.rows || [];
     const newId = rows[0]?.id;
@@ -689,14 +864,33 @@ router.post('/sources', auth.verifyToken, validateSelectors, async (req, res, ne
 // به‌روزرسانی منبع
 router.put('/sources/:id', auth.verifyToken, validateSelectors, async (req, res, next) => {
   const { id } = req.params;
+  
+  console.log('🔄 [API-PUT] درخواست به‌روزرسانی منبع دریافت شد');
+  console.log('🆔 [API-PUT] ID منبع:', id);
+  console.log('📋 [API-PUT] داده‌های دریافتی از کلاینت:', JSON.stringify(req.body, null, 2));
+  
   const { 
     name, base_url, list_selector, title_selector, content_selector, link_selector, 
     lead_selector, router_selector, title_selectors, content_selectors, 
     lead_selectors, router_selectors, active, driver_type 
   } = req.body;
   
+  console.log('🔍 [API-PUT] سلکتورهای چندگانه دریافتی:');
+  console.log('  📝 title_selectors:', title_selectors);
+  console.log('  📄 content_selectors:', content_selectors);
+  console.log('  📰 lead_selectors:', lead_selectors);
+  console.log('  👤 router_selectors:', router_selectors);
+  
+  console.log('🔍 [API-PUT] سلکتورهای اصلی دریافتی:');
+  console.log('  📝 title_selector:', title_selector);
+  console.log('  📄 content_selector:', content_selector);
+  console.log('  📰 lead_selector:', lead_selector);
+  console.log('  👤 router_selector:', router_selector);
+  
   try {
     const db = database.db;
+    
+    console.log('✅ [API-PUT] اعتبارسنجی اولیه موفق بود');
     
     // لاگ شروع عملیات به‌روزرسانی
     logger.info('شروع به‌روزرسانی منبع:', {
@@ -719,14 +913,37 @@ router.put('/sources/:id', auth.verifyToken, validateSelectors, async (req, res,
       WHERE id = $15
     `;
 
-    const result = await db.query(query, [
+    console.log('💾 [API-PUT] آماده‌سازی داده‌ها برای به‌روزرسانی در دیتابیس:');
+    const dbParams = [
       name, base_url, list_selector, 
       title_selector || '', content_selector || '', link_selector || '',
       lead_selector || '', router_selector || '',
       title_selectors || '[]', content_selectors || '[]',
       lead_selectors || '[]', router_selectors || '[]',
       active, driver_type || 'puppeteer', id
-    ]);
+    ];
+    
+    console.log('📊 [API-PUT] پارامترهای نهایی برای دیتابیس:');
+    console.log('  1. name:', dbParams[0]);
+    console.log('  2. base_url:', dbParams[1]);
+    console.log('  3. list_selector:', dbParams[2]);
+    console.log('  4. title_selector:', dbParams[3]);
+    console.log('  5. content_selector:', dbParams[4]);
+    console.log('  6. link_selector:', dbParams[5]);
+    console.log('  7. lead_selector:', dbParams[6]);
+    console.log('  8. router_selector:', dbParams[7]);
+    console.log('  9. title_selectors:', dbParams[8]);
+    console.log('  10. content_selectors:', dbParams[9]);
+    console.log('  11. lead_selectors:', dbParams[10]);
+    console.log('  12. router_selectors:', dbParams[11]);
+    console.log('  13. active:', dbParams[12]);
+    console.log('  14. driver_type:', dbParams[13]);
+    console.log('  15. id:', dbParams[14]);
+    
+    console.log('🚀 [API-PUT] اجرای کوئری به‌روزرسانی...');
+    const result = await db.query(query, dbParams);
+    console.log('✅ [API-PUT] کوئری به‌روزرسانی با موفقیت اجرا شد');
+    console.log('📋 [API-PUT] تعداد ردیف‌های به‌روزرسانی شده:', result.rowCount);
 
     if (!result.rowCount || result.rowCount === 0) {
       logger.warn('تلاش برای به‌روزرسانی منبع ناموجود:', {
@@ -945,8 +1162,24 @@ router.get('/farsnews', async (req, res) => {
   try {
     const { limit = 10, depth = 0, full = true } = req.query;
     
-    // فارس‌نیوز همیشه sourceId = 1
-    const result = await crawler.crawlSource(1, {
+    // تلاش برای پیدا کردن منبع فارس‌نیوز به‌صورت پویا
+    let farsId = null;
+    try {
+      const db = database.db;
+      const result = await db.query("SELECT id FROM news_sources WHERE name IN ('فارس‌نیوز','farsnews','farsnews.ir') AND active = true ORDER BY id ASC LIMIT 1");
+      farsId = result.rows?.[0]?.id || null;
+      if (!farsId) {
+        // fallback: اولین منبع فعال موجود
+        const anyActive = await db.query("SELECT id FROM news_sources WHERE active = true ORDER BY id ASC LIMIT 1");
+        farsId = anyActive.rows?.[0]?.id || null;
+      }
+    } catch (_) {}
+    
+    if (!farsId) {
+      return res.status(404).json({ success: false, message: 'هیچ منبع فعالی یافت نشد' });
+    }
+    
+    const result = await crawler.crawlSource(parseInt(farsId), {
       limit: parseInt(limit),
       crawlDepth: parseInt(depth),
       fullContent: full === 'true'
@@ -1507,87 +1740,8 @@ router.get('/stats', async (req, res) => {
 // دریافت لاگ‌ها
 router.get('/logs', auth.verifyToken, async (req, res) => {
   try {
-    const { 
-      limit = 50, 
-      offset = 0, 
-      source_id, 
-      status, 
-      action, 
-      date_from, 
-      date_to, 
-      message, 
-      sort = 'created_at',
-      order = 'desc'
-    } = req.query;
-    
-    let query = `
-      SELECT cl.*, ns.name as source_name
-      FROM crawl_logs cl
-      LEFT JOIN news_sources ns ON cl.source_id = ns.id
-      WHERE 1=1
-    `;
-    const params = [];
-    let paramIndex = 1;
-    
-    // فیلتر بر اساس منبع
-    if (source_id) {
-      query += ` AND cl.source_id = $${paramIndex}`;
-      params.push(source_id);
-      paramIndex++;
-    }
-    
-    // فیلتر بر اساس وضعیت
-    if (status) {
-      query += ` AND cl.status = $${paramIndex}`;
-      params.push(status);
-      paramIndex++;
-    }
-    
-    // فیلتر بر اساس عملیات
-    if (action) {
-      query += ` AND cl.action = $${paramIndex}`;
-      params.push(action);
-      paramIndex++;
-    }
-    
-    // فیلتر بر اساس تاریخ از
-    if (date_from) {
-      query += ` AND cl.created_at >= $${paramIndex}`;
-      params.push(date_from);
-      paramIndex++;
-    }
-    
-    // فیلتر بر اساس تاریخ تا
-    if (date_to) {
-      query += ` AND cl.created_at <= $${paramIndex}`;
-      params.push(date_to);
-      paramIndex++;
-    }
-    
-    // جستجو در پیام
-    if (message) {
-      query += ` AND cl.message ILIKE $${paramIndex}`;
-      params.push(`%${message}%`);
-      paramIndex++;
-    }
-    
-    // مرتب‌سازی
-    const validSortFields = ['created_at', 'source_name', 'action', 'status', 'articles_found', 'articles_processed', 'duration_ms'];
-    const sortField = validSortFields.includes(sort) ? sort : 'created_at';
-    const sortOrder = order === 'asc' ? 'ASC' : 'DESC';
-    query += ` ORDER BY cl.${sortField} ${sortOrder}`;
-    
-    // شمارش کل رکوردها
-    const countQuery = query.replace(/SELECT.*FROM/, 'SELECT COUNT(*) as total FROM');
-    const countResult = await connectionPool.query(countQuery, params);
-    const totalCount = parseInt(countResult.rows[0].total);
-    
-    // اضافه کردن limit و offset
-    query += ` LIMIT $${paramIndex} OFFSET $${paramIndex + 1}`;
-    params.push(parseInt(limit), parseInt(offset));
-    
-    const result = await connectionPool.query(query, params);
-    const logs = result.rows;
+    const { limit = 50 } = req.query;
+    const logs = await logger.getRecentLogs(parseInt(limit));
     
     // تبدیل زمان‌ها به تهران
     const formattedLogs = logs.map(log => ({
@@ -1596,20 +1750,9 @@ router.get('/logs', auth.verifyToken, async (req, res) => {
       created_at: log.created_at ? moment(log.created_at).tz('Asia/Tehran').format('YYYY/MM/DD HH:mm:ss') : log.created_at
     }));
     
-    // محاسبه اطلاعات صفحه‌بندی
-    const currentPage = Math.floor(offset / limit) + 1;
-    const totalPages = Math.ceil(totalCount / limit);
-    
     res.json({
       success: true,
-      logs: formattedLogs,
-      pagination: {
-        currentPage,
-        totalPages,
-        totalCount,
-        limit: parseInt(limit),
-        offset: parseInt(offset)
-      }
+      logs: formattedLogs
     });
   } catch (error) {
     logger.error('خطا در دریافت لاگ‌ها:', error);
@@ -1620,220 +1763,47 @@ router.get('/logs', auth.verifyToken, async (req, res) => {
   }
 });
 
-// دریافت آمار لاگ‌ها
-router.get('/logs/stats', auth.verifyToken, async (req, res) => {
-  try {
-    const { source_id, date_from, date_to } = req.query;
-    
-    let whereClause = 'WHERE 1=1';
+// دریافت تاریخچه کرال
+router.get('/crawl-history', async (req, res) => {
+  const { source, limit = 50 } = req.query;
+  const db = database.db;
+  
+  let query = `
+    SELECT ch.*, ns.name as source_name
+    FROM crawl_history ch
+    LEFT JOIN news_sources ns ON ch.source_id = ns.id
+  `;
   const params = [];
-    let paramIndex = 1;
+  
+  if (source) {
+    query += ' WHERE ch.source_id = $1';
+    params.push(source);
+  }
+  
+  query += ' ORDER BY ch.created_at DESC LIMIT $' + (params.length + 1);
+  params.push(parseInt(limit));
+  
+  try {
+    const rows = await db.query(query, params);
     
-    if (source_id) {
-      whereClause += ` AND source_id = $${paramIndex}`;
-      params.push(source_id);
-      paramIndex++;
-    }
-    
-    if (date_from) {
-      whereClause += ` AND created_at >= $${paramIndex}`;
-      params.push(date_from);
-      paramIndex++;
-    }
-    
-    if (date_to) {
-      whereClause += ` AND created_at <= $${paramIndex}`;
-      params.push(date_to);
-      paramIndex++;
-    }
-    
-    // آمار کلی
-    const totalQuery = `SELECT COUNT(*) as total FROM crawl_logs ${whereClause}`;
-    const totalResult = await connectionPool.query(totalQuery, params);
-    const totalLogs = parseInt(totalResult.rows[0].total);
-    
-    // آمار بر اساس وضعیت
-    const statusQuery = `
-      SELECT status, COUNT(*) as count 
-      FROM crawl_logs ${whereClause}
-      GROUP BY status
-    `;
-    const statusResult = await connectionPool.query(statusQuery, params);
-    const statusStats = statusResult.rows;
-    
-    // آمار بر اساس عملیات
-    const actionQuery = `
-      SELECT action, COUNT(*) as count 
-      FROM crawl_logs ${whereClause}
-      GROUP BY action
-    `;
-    const actionResult = await connectionPool.query(actionQuery, params);
-    const actionStats = actionResult.rows;
-    
-    // آمار امروز
-    const todayQuery = `
-      SELECT COUNT(*) as count 
-      FROM crawl_logs 
-      WHERE DATE(created_at) = CURRENT_DATE
-    `;
-    const todayResult = await connectionPool.query(todayQuery);
-    const todayLogs = parseInt(todayResult.rows[0].count);
-    
-    // آمار موفقیت‌ها
-    const successQuery = `
-      SELECT COUNT(*) as count 
-      FROM crawl_logs ${whereClause} AND status = 'success'
-    `;
-    const successResult = await connectionPool.query(successQuery, params);
-    const successLogs = parseInt(successResult.rows[0].count);
-    
-    // آمار خطاها
-    const errorQuery = `
-      SELECT COUNT(*) as count 
-      FROM crawl_logs ${whereClause} AND status = 'error'
-    `;
-    const errorResult = await connectionPool.query(errorQuery, params);
-    const errorLogs = parseInt(errorResult.rows[0].count);
+    // تبدیل زمان‌ها به تهران
+    const formattedHistory = rows.map(row => ({
+      ...row,
+      created_at: row.created_at ? moment(row.created_at).tz('Asia/Tehran').format('YYYY/MM/DD HH:mm:ss') : row.created_at,
+      crawl_date: row.crawl_date ? moment(row.crawl_date).tz('Asia/Tehran').format('YYYY/MM/DD HH:mm:ss') : row.crawl_date
+    }));
     
     res.json({
       success: true,
-      stats: {
-        total: totalLogs,
-        today: todayLogs,
-        success: successLogs,
-        error: errorLogs,
-        statusBreakdown: statusStats,
-        actionBreakdown: actionStats
-      }
+      history: formattedHistory
     });
   } catch (error) {
-    logger.error('خطا در دریافت آمار لاگ‌ها:', error);
-    res.status(500).json({
-      success: false,
-      message: 'خطا در دریافت آمار لاگ‌ها'
-    });
+    logger.error('خطا در دریافت تاریخچه:', error);
+    res.status(500).json({ success: false, message: 'خطای دیتابیس' });
   }
 });
 
-// حذف لاگ
-router.delete('/logs/:id', auth.verifyToken, async (req, res) => {
-  try {
-    const { id } = req.params;
-    
-    const result = await connectionPool.query(
-      'DELETE FROM crawl_logs WHERE id = $1',
-      [id]
-    );
-    
-    if (result.rowCount === 0) {
-      return res.status(404).json({
-        success: false,
-        message: 'لاگ یافت نشد'
-      });
-    }
-    
-    res.json({
-      success: true,
-      message: 'لاگ با موفقیت حذف شد'
-    });
-  } catch (error) {
-    logger.error('خطا در حذف لاگ:', error);
-    res.status(500).json({
-      success: false,
-      message: 'خطا در حذف لاگ'
-    });
-  }
-});
 
-// تلاش مجدد برای لاگ
-router.post('/logs/:id/retry', auth.verifyToken, async (req, res) => {
-  try {
-    const { id } = req.params;
-    
-    // دریافت اطلاعات لاگ
-    const logResult = await connectionPool.query(
-      'SELECT * FROM crawl_logs WHERE id = $1',
-      [id]
-    );
-    
-    if (logResult.rows.length === 0) {
-      return res.status(404).json({
-        success: false,
-        message: 'لاگ یافت نشد'
-      });
-    }
-    
-    const log = logResult.rows[0];
-    
-    // بررسی اینکه لاگ خطا داشته باشد
-    if (log.status !== 'error') {
-      return res.status(400).json({
-        success: false,
-        message: 'فقط لاگ‌های خطا قابل تلاش مجدد هستند'
-      });
-    }
-    
-    // اجرای مجدد عملیات کرال
-    const crawler = new UniversalCrawler(config.webDriver.defaultType);
-    
-    // یافتن منبع
-    const sourceResult = await connectionPool.query(
-      'SELECT * FROM news_sources WHERE id = $1',
-      [log.source_id]
-    );
-    
-    if (sourceResult.rows.length === 0) {
-      return res.status(404).json({
-        success: false,
-        message: 'منبع یافت نشد'
-      });
-    }
-    
-    const source = sourceResult.rows[0];
-    
-    // اجرای کرال مجدد
-    const crawlResult = await crawler.crawl(source);
-    
-    res.json({
-      success: true,
-      message: 'عملیات کرال مجدد شروع شد',
-      result: crawlResult
-    });
-  } catch (error) {
-    logger.error('خطا در تلاش مجدد لاگ:', error);
-    res.status(500).json({
-      success: false,
-      message: 'خطا در تلاش مجدد لاگ'
-    });
-  }
-});
-
-// پاک کردن همه لاگ‌ها
-router.delete('/logs', auth.verifyToken, async (req, res) => {
-  try {
-    const { days = 30 } = req.query;
-    
-    const cutoffDate = new Date();
-    cutoffDate.setDate(cutoffDate.getDate() - parseInt(days));
-    
-    const result = await connectionPool.query(
-      'DELETE FROM crawl_logs WHERE created_at < $1',
-      [cutoffDate.toISOString()]
-    );
-    
-    res.json({
-      success: true,
-      message: `${result.rowCount} لاگ قدیمی پاک شد`,
-      deletedCount: result.rowCount
-    });
-  } catch (error) {
-    logger.error('خطا در پاک کردن لاگ‌ها:', error);
-    res.status(500).json({
-      success: false,
-      message: 'خطا در پاک کردن لاگ‌ها'
-    });
-  }
-});
 
 // ==================== CLEANUP SCHEDULES ROUTES ====================
 
@@ -2585,10 +2555,11 @@ router.get('/selector-builder/proxy', auth.requireAuth, async (req, res, next) =
       res.send(html);
       
     } catch (error) {
-      logger.error('خطا در دریافت صفحه:', error.message);
+      const errorMessage = error.message || error.toString() || 'خطای نامشخص';
+      logger.error('خطا در دریافت صفحه:', { message: errorMessage, stack: error.stack });
       res.status(500).json({
         success: false,
-        message: 'خطا در دریافت صفحه: ' + error.message
+        message: 'خطا در دریافت صفحه: ' + errorMessage
       });
     }
     
@@ -2825,6 +2796,42 @@ router.delete('/selector-builder/configs/:id', auth.requireAuth, async (req, res
     res.json({
       success: true,
       message: 'پیکربندی با موفقیت حذف شد'
+    });
+    
+  } catch (error) {
+    next(error);
+  }
+});
+
+// ایجاد پیکربندی جدید
+router.post('/selector-builder/configs', auth.requireAuth, async (req, res, next) => {
+  try {
+    const { name, url, selectors, description } = req.body;
+    
+    if (!name || !url || !selectors) {
+      return res.status(400).json({
+        success: false,
+        message: 'نام، URL و انتخابگرها الزامی هستند'
+      });
+    }
+    
+    const query = `
+      INSERT INTO selector_configs (name, url, selectors, description, created_at, updated_at)
+      VALUES ($1, $2, $3, $4, NOW(), NOW())
+      RETURNING *
+    `;
+    
+    const result = await connectionPool.query(query, [
+      name,
+      url,
+      JSON.stringify(selectors),
+      description || null
+    ]);
+    
+    res.status(201).json({
+      success: true,
+      message: 'پیکربندی با موفقیت ایجاد شد',
+      data: result.rows[0]
     });
     
   } catch (error) {

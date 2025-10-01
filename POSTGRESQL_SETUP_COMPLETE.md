@@ -7,7 +7,7 @@
 ### 📊 آمار سیستم:
 - **دیتابیس**: PostgreSQL 15
 - **پورت**: 5433 (برای جلوگیری از تداخل)
-- **کاربر**: farsnews_user
+- **کاربر**: crawler_user
 - **دیتابیس**: farsnews_crawler_spider_db
 - **منابع خبری**: 6 منبع
 - **مقالات**: 746 مقاله
@@ -64,10 +64,10 @@ npm start
 
 ### متغیرهای محیطی:
 ```bash
-DB_USER=farsnews_user
+DB_USER=crawler_user
 DB_HOST=localhost
 DB_NAME=farsnews_crawler_spider_db
-DB_PASSWORD=farsnews123
+DB_PASSWORD=8bmh8y19zNJahAv5Aa4B
 DB_PORT=5433
 ```
 
@@ -138,13 +138,13 @@ node ci-test.js
 ### Backup:
 ```bash
 # Backup دیتابیس
-docker exec farsnews_postgres pg_dump -U farsnews_user farsnews_crawler_spider_db > backup.sql
+docker exec farsnews_postgres pg_dump -U crawler_user farsnews_crawler_spider_db > backup.sql
 ```
 
 ### Restore:
 ```bash
 # Restore دیتابیس
-docker exec -i farsnews_postgres psql -U farsnews_user farsnews_crawler_spider_db < backup.sql
+docker exec -i farsnews_postgres psql -U crawler_user farsnews_crawler_spider_db < backup.sql
 ```
 
 ### Monitoring:
@@ -153,7 +153,7 @@ docker exec -i farsnews_postgres psql -U farsnews_user farsnews_crawler_spider_d
 docker logs farsnews_postgres
 
 # اتصال به دیتابیس
-docker exec -it farsnews_postgres psql -U farsnews_user -d farsnews_crawler_spider_db
+docker exec -it farsnews_postgres psql -U crawler_user -d farsnews_crawler_spider_db
 ```
 
 ## 🚨 عیب‌یابی

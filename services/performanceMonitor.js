@@ -173,7 +173,7 @@ class PerformanceMonitor extends EventEmitter {
       
       // دریافت اندازه دیتابیس PostgreSQL
       const dbSizeResult = await this.db.query(`
-        SELECT pg_database_size('crawler_db') as size
+        SELECT pg_database_size('farsnews_crawler_spider_db') as size
       `);
       
       if (dbSizeResult && dbSizeResult.length > 0) {
@@ -422,7 +422,7 @@ class PerformanceMonitor extends EventEmitter {
   async getDatabaseSize() {
     try {
       const result = await this.db.query(`
-        SELECT pg_database_size('crawler_db') as size
+        SELECT pg_database_size('farsnews_crawler_spider_db') as size
       `);
       
       const rows = result.rows || [];

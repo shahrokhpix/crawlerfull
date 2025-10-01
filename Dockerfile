@@ -1,48 +1,75 @@
-# Use Node.js 20 Alpine for smaller size
-FROM node:20-alpine
+# Use Node.js 20 Debian slim for broader compatibility (Playwright support)
+FROM node:20-bullseye-slim
 
-# Install system dependencies
-RUN apk add --no-cache \
-    chromium \
-    nss \
-    freetype \
-    freetype-dev \
-    harfbuzz \
+# Install system dependencies for Chromium, Chromedriver, and headless browsing
+RUN apt-get update && apt-get install -y \
+    wget \
+    gnupg \
     ca-certificates \
-    ttf-freefont \
     curl \
-    bash \
     git \
-    && rm -rf /var/cache/apk/*
+    chromium \
+    chromium-driver \
+    fonts-liberation \
+    fonts-freefont-ttf \
+    libnss3 \
+    libatk-bridge2.0-0 \
+    libdrm2 \
+    libxkbcommon0 \
+    libxcomposite1 \
+    libxdamage1 \
+    libxfixes3 \
+    libxrandr2 \
+    libgbm1 \
+    libpango-1.0-0 \
+    libcairo2 \
+    libasound2 \
+    libatspi2.0-0 \
+    libgtk-3-0 \
+    xvfb \
+  && rm -rf /var/lib/apt/lists/*
 
-# Set environment variables for Puppeteer
-ENV PUPPETEER_SKIP_CHROMIUM_DOWNLOAD=true \
-    PUPPETEER_EXECUTABLE_PATH=/usr/bin/chromium-browser \
+# Environment variables
+ENV NODE_ENV=production \
+    TZ=Asia/Tehran \
+    PUPPETEER_SKIP_CHROMIUM_DOWNLOAD=true \
     PUPPETEER_SKIP_DOWNLOAD=true \
-    NODE_ENV=production \
-    TZ=Asia/Tehran
+    PUPPETEER_EXECUTABLE_PATH=/usr/bin/chromium
 
 # Create working directory
 WORKDIR /app
 
-# Copy package files
+# Copy package files first for better caching
 COPY package*.json ./
 
-# Configure npm for Iranian mirrors and install dependencies
+# Use fast mirror and install deps
 RUN npm config set registry https://registry.npmmirror.com && \
     npm install --only=production --ignore-scripts && \
     npm cache clean --force
 
+# Install PM2 globally and pm2-logrotate
+RUN npm install -g pm2 && \
+    pm2 install pm2-logrotate && \
+    pm2 set pm2-logrotate:max_size 10M && \
+    pm2 set pm2-logrotate:retain 10 && \
+    pm2 set pm2-logrotate:compress true && \
+    pm2 set pm2-logrotate:dateFormat YYYY-MM-DD_HH-mm-ss
+
 # Copy application code
 COPY . .
 
-# Create required directories with proper permissions
+RUN mkdir -p /home/node/.cache/ms-playwright && chown -R node:node /home/node/.cache
+USER node
+RUN npx playwright install chromium && npx playwright --version || true
+
+# Switch back to root to set permissions on app dirs, then return to node
+USER root
 RUN mkdir -p logs data && \
     chmod 755 /app && \
     chmod -R 777 logs data public && \
     chown -R node:node /app
 
-# Switch to node user for security
+# Use non-root user for running the app
 USER node
 
 # Expose port
@@ -50,7 +77,7 @@ EXPOSE 3004
 
 # Health check
 HEALTHCHECK --interval=30s --timeout=10s --start-period=40s --retries=3 \
-    CMD curl -f http://localhost:3004/api/health || exit 1
+  CMD curl -f http://localhost:3004/api/health || exit 1
 
-# Start command
-CMD ["npm", "start"]
+# Start with pm2
+CMD ["pm2-runtime", "start", "ecosystem.config.js"]
