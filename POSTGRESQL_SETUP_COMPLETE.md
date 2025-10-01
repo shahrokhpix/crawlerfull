@@ -67,7 +67,7 @@ npm start
 DB_USER=crawler_user
 DB_HOST=localhost
 DB_NAME=farsnews_crawler_spider_db
-DB_PASSWORD=farsnews123
+DB_PASSWORD=8bmh8y19zNJahAv5Aa4B
 DB_PORT=5433
 ```
 

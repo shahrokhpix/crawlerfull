@@ -52,7 +52,7 @@ class AuthMiddleware {
       user: process.env.DB_USER || 'crawler_user',
       host: process.env.DB_HOST || 'postgres',
       database: process.env.DB_NAME || 'farsnews_crawler_spider_db',
-      password: process.env.DB_PASSWORD || 'farsnews123',
+      password: process.env.DB_PASSWORD || '8bmh8y19zNJahAv5Aa4B',
       port: parseInt(process.env.DB_PORT) || 5432,
     });
 
@@ -106,7 +106,7 @@ class AuthMiddleware {
       user: process.env.DB_USER || 'crawler_user',
       host: process.env.DB_HOST || 'postgres',
       database: process.env.DB_NAME || 'farsnews_crawler_spider_db',
-      password: process.env.DB_PASSWORD || 'farsnews123',
+      password: process.env.DB_PASSWORD || '8bmh8y19zNJahAv5Aa4B',
       port: parseInt(process.env.DB_PORT) || 5432,
     });
     
@@ -162,7 +162,7 @@ class AuthMiddleware {
       user: process.env.DB_USER || 'crawler_user',
       host: process.env.DB_HOST || 'postgres',
       database: process.env.DB_NAME || 'farsnews_crawler_spider_db',
-      password: process.env.DB_PASSWORD || 'farsnews123',
+      password: process.env.DB_PASSWORD || '8bmh8y19zNJahAv5Aa4B',
       port: parseInt(process.env.DB_PORT) || 5432,
     });
     
@@ -233,7 +233,7 @@ class AuthMiddleware {
       user: process.env.DB_USER || 'crawler_user',
       host: process.env.DB_HOST || 'postgres',
       database: process.env.DB_NAME || 'farsnews_crawler_spider_db',
-      password: process.env.DB_PASSWORD || 'farsnews123',
+      password: process.env.DB_PASSWORD || '8bmh8y19zNJahAv5Aa4B',
       port: parseInt(process.env.DB_PORT) || 5432,
     });
     
@@ -256,7 +256,7 @@ class AuthMiddleware {
       user: process.env.DB_USER || 'crawler_user',
       host: process.env.DB_HOST || 'postgres',
       database: process.env.DB_NAME || 'farsnews_crawler_spider_db',
-      password: process.env.DB_PASSWORD || 'farsnews123',
+      password: process.env.DB_PASSWORD || '8bmh8y19zNJahAv5Aa4B',
       port: parseInt(process.env.DB_PORT) || 5432,
     });
     

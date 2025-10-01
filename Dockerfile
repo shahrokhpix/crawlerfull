@@ -47,11 +47,17 @@ RUN npm config set registry https://registry.npmmirror.com && \
     npm install --only=production --ignore-scripts && \
     npm cache clean --force
 
+# Install PM2 globally and pm2-logrotate
+RUN npm install -g pm2 && \
+    pm2 install pm2-logrotate && \
+    pm2 set pm2-logrotate:max_size 10M && \
+    pm2 set pm2-logrotate:retain 10 && \
+    pm2 set pm2-logrotate:compress true && \
+    pm2 set pm2-logrotate:dateFormat YYYY-MM-DD_HH-mm-ss
+
 # Copy application code
 COPY . .
 
-# Prepare playwright browser cache directory for node user and install chromium browser
-# Do this as the node user so caches live under /home/node/.cache
 RUN mkdir -p /home/node/.cache/ms-playwright && chown -R node:node /home/node/.cache
 USER node
 RUN npx playwright install chromium && npx playwright --version || true
@@ -73,5 +79,5 @@ EXPOSE 3004
 HEALTHCHECK --interval=30s --timeout=10s --start-period=40s --retries=3 \
   CMD curl -f http://localhost:3004/api/health || exit 1
 
-# Start command
-CMD ["npm", "start"]
+# Start with pm2
+CMD ["pm2-runtime", "start", "ecosystem.config.js"]

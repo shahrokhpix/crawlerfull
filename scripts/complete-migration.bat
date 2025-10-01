@@ -29,7 +29,7 @@ if %errorlevel% neq 0 (
     echo [INFO] ایجاد دیتابیس PostgreSQL...
     
     REM Create user if not exists
-    psql -h localhost -U postgres -c "CREATE USER crawler_user WITH PASSWORD 'farsnews123';" 2>nul
+    psql -h localhost -U postgres -c "CREATE USER crawler_user WITH PASSWORD '8bmh8y19zNJahAv5Aa4B';" 2>nul
     
     REM Create database
     psql -h localhost -U postgres -c "CREATE DATABASE farsnews_crawler_spider_db OWNER crawler_user;" 2>nul

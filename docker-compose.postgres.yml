@@ -7,7 +7,7 @@ services:
     environment:
       POSTGRES_DB: farsnews_crawler_spider_db
       POSTGRES_USER: crawler_user
-      POSTGRES_PASSWORD: farsnews123
+      POSTGRES_PASSWORD: 8bmh8y19zNJahAv5Aa4B
       POSTGRES_INITDB_ARGS: "--encoding=UTF-8 --lc-collate=C --lc-ctype=C"
     ports:
       - "5433:5432"

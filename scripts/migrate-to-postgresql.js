@@ -12,7 +12,7 @@ class SQLiteToPostgreSQLMigrator {
       user: process.env.DB_USER || 'crawler_user',
       host: process.env.DB_HOST || 'localhost',
       database: process.env.DB_NAME || 'farsnews_crawler_spider_db',
-      password: process.env.DB_PASSWORD || 'farsnews123',
+      password: process.env.DB_PASSWORD || '8bmh8y19zNJahAv5Aa4B',
       port: process.env.DB_PORT || 5432,
     };
     

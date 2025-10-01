@@ -101,6 +101,21 @@
             z-index: 1000;
         }
         
+        @keyframes pulse {
+            0% {
+                transform: scale(1);
+                opacity: 1;
+            }
+            50% {
+                transform: scale(1.05);
+                opacity: 0.8;
+            }
+            100% {
+                transform: scale(1);
+                opacity: 1;
+            }
+        }
+        
         .url-input {
             flex: 1;
         }
@@ -168,6 +183,30 @@
                 </button>
             </div>
             
+            <!-- Saved Configurations -->
+            <div class="config-form mb-3">
+                <h6 class="mb-3">پیکربندی‌های ذخیره شده</h6>
+                <div class="mb-3">
+                    <select class="form-control" id="savedConfigs" onchange="loadSelectedConfig()">
+                        <option value="">انتخاب پیکربندی موجود...</option>
+                    </select>
+                </div>
+                <div class="d-grid gap-2 d-md-flex">
+                    <button class="btn btn-outline-info btn-sm" id="refreshConfigsBtn" onclick="refreshConfigsList()">
+                        <i class="fas fa-refresh me-1"></i>بروزرسانی
+                    </button>
+                    <button class="btn btn-outline-success btn-sm" id="copyConfigBtn" disabled>
+                        <i class="fas fa-copy me-1"></i>کپی
+                    </button>
+                    <button class="btn btn-outline-warning btn-sm" id="exportConfigBtn" disabled>
+                        <i class="fas fa-download me-1"></i>صادرات
+                    </button>
+                    <button class="btn btn-outline-danger btn-sm" onclick="deleteSelectedConfig()" id="deleteConfigBtn" disabled>
+                        <i class="fas fa-trash me-1"></i>حذف
+                    </button>
+                </div>
+            </div>
+
             <!-- Configuration Form -->
             <div class="config-form">
                 <h6 class="mb-3">تنظیمات پیکربندی</h6>
@@ -182,6 +221,9 @@
                 <div class="d-grid gap-2">
                     <button class="btn btn-success" onclick="saveConfiguration()">
                         <i class="fas fa-save me-2"></i>ذخیره پیکربندی
+                    </button>
+                    <button class="btn btn-outline-secondary" id="clearFormBtn" onclick="clearConfiguration()">
+                    <i class="fas fa-broom me-2"></i>پاک کردن فرم
                     </button>
                     <button class="btn btn-outline-primary" onclick="testSelectors()">
                         <i class="fas fa-play me-2"></i>تست انتخابگرها
@@ -220,6 +262,15 @@
                         حالت انتخاب
                     </label>
                 </div>
+                <div class="form-check">
+                    <input class="form-check-input" type="checkbox" id="livePreviewMode">
+                    <label class="form-check-label" for="livePreviewMode">
+                        پیش‌نمایش زنده
+                    </label>
+                </div>
+                <div class="connection-status">
+                    <span id="connection-status">🟡 در حال اتصال...</span>
+                </div>
             </div>
             
             <!-- Preview Frame -->
@@ -239,22 +290,50 @@
     <script src="selector-builder.js"></script>
     
     <script>
+        // Utility function to escape HTML
+        function escapeHtml(text) {
+            if (!text) return '';
+            const div = document.createElement('div');
+            div.textContent = text;
+            return div.innerHTML;
+        }
+        
         // Global variables
+        let configId = null; // Current configuration ID for editing
         let selectors = {};
         let currentEditingSelector = null;
         let highlightOverlay = null;
-        let configId = null; // For editing existing configs
         
         // Initialize the application
         document.addEventListener('DOMContentLoaded', function() {
             initializeApp();
         });
         
-        function initializeApp() {
+        async function initializeApp() {
+            // Check authentication first
+            try {
+                const authResponse = await fetch('/api/auth/me', {
+                    method: 'GET',
+                    credentials: 'include'
+                });
+                
+                if (!authResponse.ok) {
+                    window.location.href = '/admin/index.html';
+                    return;
+                }
+            } catch (error) {
+                console.error('Authentication check failed:', error);
+                window.location.href = '/admin/index.html';
+                return;
+            }
+            
             // Parse URL parameters
             const urlParams = new URLSearchParams(window.location.search);
             const targetUrl = urlParams.get('url');
             const editId = urlParams.get('edit');
+            
+            // Load saved configurations list
+            refreshConfigsList();
             
             if (editId) {
                 loadExistingConfig(editId);
@@ -265,6 +344,28 @@
             
             // Add default selectors
             addDefaultSelectors();
+            
+            // Setup event listeners for new buttons
+            document.getElementById('savedConfigs').addEventListener('change', loadSelectedConfig);
+            document.getElementById('refreshConfigsBtn').addEventListener('click', refreshConfigsList);
+            document.getElementById('copyConfigBtn').addEventListener('click', copySelectedConfig);
+            document.getElementById('exportConfigBtn').addEventListener('click', exportSelectedConfig);
+            document.getElementById('deleteConfigBtn').addEventListener('click', deleteSelectedConfig);
+            document.getElementById('clearFormBtn').addEventListener('click', clearConfiguration);
+            
+            // Setup live preview mode toggle
+            document.getElementById('livePreviewMode').addEventListener('change', function() {
+                if (!this.checked) {
+                    removeLivePreviewHighlights();
+                }
+            });
+            
+            // Replace the save button event listener with enhanced version
+            const saveBtn = document.querySelector('button[onclick="saveConfiguration()"]');
+            if (saveBtn) {
+                saveBtn.removeAttribute('onclick');
+                saveBtn.addEventListener('click', saveConfigurationEnhanced);
+            }
         }
         
         function addDefaultSelectors() {
@@ -318,6 +419,9 @@
                     <button class="btn btn-outline-secondary btn-sm" onclick="editSelector('${key}')">
                         <i class="fas fa-edit me-1"></i>ویرایش
                     </button>
+                    <button class="btn btn-outline-success btn-sm" onclick="toggleLivePreview('${key}')">
+                        <i class="fas fa-eye me-1"></i>پیش‌نمایش
+                    </button>
                     <button class="btn btn-outline-danger btn-sm" onclick="clearSelector('${key}')">
                         <i class="fas fa-trash me-1"></i>پاک
                     </button>
@@ -330,7 +434,7 @@
             return div;
         }
         
-        function loadPage() {
+        async function loadPage() {
             const url = document.getElementById('targetUrl').value;
             if (!url) {
                 showToast('لطفاً آدرس صفحه را وارد کنید', 'warning');
@@ -339,21 +443,44 @@
             
             showLoading(true);
             
-            // Use proxy endpoint to load the page
-            const proxyUrl = `/api/selector-builder/proxy?url=${encodeURIComponent(url)}`;
-            const iframe = document.getElementById('previewFrame');
-            
-            iframe.onload = function() {
+            try {
+                // Use fetch with credentials to get the page content
+                const proxyUrl = `/api/selector-builder/proxy?url=${encodeURIComponent(url)}`;
+                const response = await fetch(proxyUrl, {
+                    method: 'GET',
+                    credentials: 'include'
+                });
+                
+                if (!response.ok) {
+                    throw new Error(`HTTP ${response.status}: ${response.statusText}`);
+                }
+                
+                const html = await response.text();
+                const iframe = document.getElementById('previewFrame');
+                
+                // Clean HTML to remove service worker registrations
+                const cleanHtml = html.replace(/navigator\.serviceWorker\.register[^}]*}/g, '')
+                                     .replace(/<script[^>]*>.*?navigator\.serviceWorker.*?<\/script>/gs, '')
+                                     .replace(/if\s*\([^)]*serviceWorker[^)]*\)[^}]*}/g, '');
+                
+                iframe.onload = function() {
+                    showLoading(false);
+                    setupIframeInteraction();
+                };
+                
+                iframe.onerror = function() {
+                    showLoading(false);
+                    showToast('خطا در بارگذاری صفحه', 'error');
+                };
+                
+                // Use srcdoc instead of blob URL to avoid service worker issues
+                iframe.srcdoc = cleanHtml;
+                
+            } catch (error) {
                 showLoading(false);
-                setupIframeInteraction();
-            };
-            
-            iframe.onerror = function() {
-                showLoading(false);
-                showToast('خطا در بارگذاری صفحه', 'error');
-            };
-            
-            iframe.src = proxyUrl;
+                showToast('خطا در بارگذاری صفحه: ' + error.message, 'error');
+                console.error('Error loading page:', error);
+            }
         }
         
         function refreshPage() {
@@ -480,10 +607,147 @@
             document.body.appendChild(highlightOverlay);
         }
         
+        function highlightElementEnhanced(element, index, total) {
+            const iframe = document.getElementById('previewFrame');
+            const rect = element.getBoundingClientRect();
+            const iframeRect = iframe.getBoundingClientRect();
+            
+            removeHighlight();
+            
+            highlightOverlay = document.createElement('div');
+            highlightOverlay.className = 'highlight-overlay';
+            highlightOverlay.style.cssText = `
+                position: fixed;
+                left: ${iframeRect.left + rect.left}px;
+                top: ${iframeRect.top + rect.top}px;
+                width: ${rect.width}px;
+                height: ${rect.height}px;
+                background: rgba(255, 193, 7, 0.3);
+                border: 2px solid #ffc107;
+                border-radius: 4px;
+                pointer-events: none;
+                z-index: 10000;
+                animation: pulse 0.6s ease-in-out;
+            `;
+            
+            // Add counter badge
+            const badge = document.createElement('div');
+            badge.style.cssText = `
+                position: absolute;
+                top: -25px;
+                left: 0;
+                background: #ffc107;
+                color: #000;
+                padding: 2px 8px;
+                border-radius: 12px;
+                font-size: 12px;
+                font-weight: bold;
+                white-space: nowrap;
+            `;
+            badge.textContent = `${index}/${total}`;
+            highlightOverlay.appendChild(badge);
+            
+            document.body.appendChild(highlightOverlay);
+        }
+        
         function removeHighlight() {
             if (highlightOverlay) {
                 highlightOverlay.remove();
                 highlightOverlay = null;
+            }
+        }
+        
+        function toggleLivePreview(selectorKey) {
+            const livePreviewMode = document.getElementById('livePreviewMode').checked;
+            if (!livePreviewMode) {
+                removeHighlight();
+                return;
+            }
+            
+            const selector = selectors[selectorKey].selector;
+            if (!selector) {
+                showToast('انتخابگر تعریف نشده است', 'warning');
+                return;
+            }
+            
+            const iframe = document.getElementById('previewFrame');
+            const iframeDoc = iframe.contentDocument || iframe.contentWindow.document;
+            
+            if (!iframeDoc) {
+                showToast('صفحه بارگذاری نشده است', 'warning');
+                return;
+            }
+            
+            try {
+                const elements = iframeDoc.querySelectorAll(selector);
+                removeHighlight();
+                
+                if (elements.length > 0) {
+                    // Highlight all matching elements with different colors
+                    elements.forEach((element, index) => {
+                        const rect = element.getBoundingClientRect();
+                        const iframeRect = iframe.getBoundingClientRect();
+                        
+                        const overlay = document.createElement('div');
+                        overlay.className = 'live-preview-overlay';
+                        overlay.style.cssText = `
+                            position: fixed;
+                            left: ${iframeRect.left + rect.left}px;
+                            top: ${iframeRect.top + rect.top}px;
+                            width: ${rect.width}px;
+                            height: ${rect.height}px;
+                            background: rgba(40, 167, 69, 0.2);
+                            border: 2px solid #28a745;
+                            border-radius: 4px;
+                            pointer-events: none;
+                            z-index: 9999;
+                        `;
+                        
+                        // Add element counter
+                        if (elements.length > 1) {
+                            const counter = document.createElement('div');
+                            counter.style.cssText = `
+                                position: absolute;
+                                top: -20px;
+                                right: 0;
+                                background: #28a745;
+                                color: white;
+                                padding: 2px 6px;
+                                border-radius: 10px;
+                                font-size: 11px;
+                                font-weight: bold;
+                            `;
+                            counter.textContent = index + 1;
+                            overlay.appendChild(counter);
+                        }
+                        
+                        document.body.appendChild(overlay);
+                        
+                        // Store reference for cleanup
+                        if (!window.livePreviewOverlays) {
+                            window.livePreviewOverlays = [];
+                        }
+                        window.livePreviewOverlays.push(overlay);
+                    });
+                    
+                    // Auto-remove after 3 seconds
+                    setTimeout(() => {
+                        removeLivePreviewHighlights();
+                    }, 3000);
+                }
+            } catch (error) {
+                showToast('انتخابگر نامعتبر است', 'error');
+            }
+        }
+        
+        function removeLivePreviewHighlights() {
+            if (window.livePreviewOverlays) {
+                window.livePreviewOverlays.forEach(overlay => {
+                    if (overlay.parentNode) {
+                        overlay.parentNode.removeChild(overlay);
+                    }
+                });
+                window.livePreviewOverlays = [];
             }
         }
         
@@ -530,19 +794,27 @@
             try {
                 const elements = iframeDoc.querySelectorAll(selector);
                 if (elements.length > 0) {
-                    showToast(`${elements.length} عنصر یافت شد`, 'success');
-                    // Highlight found elements briefly
-                    elements.forEach((el, index) => {
-                        setTimeout(() => {
-                            highlightElement(el);
+                    const sampleText = elements[0].textContent.trim().substring(0, 50);
+                    showToast(`✅ ${elements.length} عنصر یافت شد - نمونه: "${sampleText}..."`, 'success');
+                    
+                    // Enhanced highlighting with better visual feedback
+                    let currentIndex = 0;
+                    const highlightNext = () => {
+                        if (currentIndex < elements.length && currentIndex < 5) { // Limit to 5 elements
+                            removeHighlight();
+                            highlightElementEnhanced(elements[currentIndex], currentIndex + 1, elements.length);
+                            currentIndex++;
+                            setTimeout(highlightNext, 1200);
+                        } else {
                             setTimeout(removeHighlight, 1000);
-                        }, index * 500);
-                    });
+                        }
+                    };
+                    highlightNext();
                 } else {
-                    showToast('هیچ عنصری یافت نشد', 'warning');
+                    showToast('❌ هیچ عنصری یافت نشد', 'warning');
                 }
             } catch (error) {
-                showToast('انتخابگر نامعتبر است', 'error');
+                showToast('❌ انتخابگر نامعتبر است: ' + error.message, 'error');
             }
         }
         
@@ -588,22 +860,50 @@
         }
         
         function showTestResults(results) {
-            let html = '<div class="test-results"><h6>نتایج تست:</h6>';
+            // Create or update test results container
+            let resultsContainer = document.getElementById('testResultsContainer');
+            if (!resultsContainer) {
+                resultsContainer = document.createElement('div');
+                resultsContainer.id = 'testResultsContainer';
+                resultsContainer.className = 'test-results-container mt-3';
+                resultsContainer.style.cssText = `
+                    background: #f8f9fa;
+                    border: 1px solid #dee2e6;
+                    border-radius: 8px;
+                    padding: 15px;
+                    margin-top: 15px;
+                    max-height: 300px;
+                    overflow-y: auto;
+                `;
+                
+                // Insert after the test buttons
+                const testButton = document.querySelector('button[onclick="testSelectors()"]');
+                if (testButton && testButton.parentNode) {
+                    testButton.parentNode.insertBefore(resultsContainer, testButton.nextSibling);
+                }
+            }
+            
+            let html = '<div class="test-results"><h6 style="color: #495057; margin-bottom: 10px;">📊 نتایج تست انتخابگرها:</h6>';
             
             Object.keys(results).forEach(key => {
                 const result = results[key];
                 if (result.error) {
-                    html += `<div class="alert alert-danger alert-sm">${result.label}: ${result.error}</div>`;
+                    html += `<div class="alert alert-danger" style="padding: 8px 12px; margin-bottom: 8px; border-radius: 4px; font-size: 14px;">
+                        <strong>${result.label}:</strong> ❌ ${result.error}
+                    </div>`;
                 } else {
-                    html += `<div class="alert alert-success alert-sm">${result.label}: ${result.count} عنصر - ${result.sample}...</div>`;
+                    html += `<div class="alert alert-success" style="padding: 8px 12px; margin-bottom: 8px; border-radius: 4px; font-size: 14px;">
+                        <strong>${result.label}:</strong> ✅ ${result.count} عنصر یافت شد<br>
+                        <small style="color: #6c757d;">نمونه: "${result.sample}..."</small>
+                    </div>`;
                 }
             });
             
             html += '</div>';
+            resultsContainer.innerHTML = html;
+            resultsContainer.style.display = 'block';
             
-            // Show in a modal or toast
-            showToast('نتایج تست در کنسول مشاهده کنید', 'info');
-            console.log('Test Results:', results);
+            showToast('نتایج تست نمایش داده شد', 'success');
         }
         
         function addNewSelector() {
@@ -781,6 +1081,438 @@
             toastElement.addEventListener('hidden.bs.toast', function() {
                 toastElement.remove();
             });
+        }
+        
+        // ==================== CONFIGURATION MANAGEMENT FUNCTIONS ====================
+        
+        async function refreshConfigsList() {
+            try {
+                const response = await fetch('/api/selector-builder/configs', {
+                    method: 'GET',
+                    headers: {
+                        'Content-Type': 'application/json'
+                    },
+                    credentials: 'include'
+                });
+                
+                const result = await response.json();
+                
+                if (result.success) {
+                    const select = document.getElementById('savedConfigs');
+                    select.innerHTML = '<option value="">انتخاب پیکربندی موجود...</option>';
+                    
+                    result.configs.forEach(config => {
+                        const option = document.createElement('option');
+                        option.value = config.id;
+                        option.textContent = `${config.name} (${config.url})`;
+                        select.appendChild(option);
+                    });
+                    
+                    console.log(`${result.configs.length} پیکربندی بارگذاری شد`);
+                } else {
+                    showToast('خطا در بارگذاری پیکربندی‌ها: ' + result.message, 'error');
+                }
+                
+            } catch (error) {
+                console.error('Error loading configurations:', error);
+                showToast('خطا در بارگذاری پیکربندی‌ها', 'error');
+            }
+        }
+        
+        function loadSelectedConfig() {
+            const select = document.getElementById('savedConfigs');
+            const selectedId = select.value;
+            const deleteBtn = document.getElementById('deleteConfigBtn');
+            const copyBtn = document.getElementById('copyConfigBtn');
+            const exportBtn = document.getElementById('exportConfigBtn');
+            
+            if (selectedId) {
+                deleteBtn.disabled = false;
+                copyBtn.disabled = false;
+                exportBtn.disabled = false;
+                loadExistingConfig(selectedId);
+            } else {
+                deleteBtn.disabled = true;
+                copyBtn.disabled = true;
+                exportBtn.disabled = true;
+            }
+        }
+        
+        async function copySelectedConfig() {
+            const select = document.getElementById('savedConfigs');
+            const selectedId = select.value;
+            
+            if (!selectedId) {
+                showToast('لطفاً پیکربندی را انتخاب کنید', 'warning');
+                return;
+            }
+            
+            try {
+                const response = await fetch(`/api/selector-builder/configs/${selectedId}`, {
+                    method: 'GET',
+                    headers: {
+                        'Content-Type': 'application/json'
+                    },
+                    credentials: 'include'
+                });
+                
+                const result = await response.json();
+                
+                if (result.success) {
+                    const config = result.config;
+                    
+                    // Create a copy with modified name
+                    const copyName = `${config.name} - کپی`;
+                    const copyData = {
+                        name: copyName,
+                        description: config.description ? `${config.description} (کپی)` : 'کپی شده',
+                        url: config.url,
+                        selectors: config.selectors
+                    };
+                    
+                    const saveResponse = await fetch('/api/selector-builder/configs', {
+                        method: 'POST',
+                        headers: {
+                            'Content-Type': 'application/json'
+                        },
+                        credentials: 'include',
+                        body: JSON.stringify(copyData)
+                    });
+                    
+                    const saveResult = await saveResponse.json();
+                    
+                    if (saveResult.success) {
+                        showToast('پیکربندی با موفقیت کپی شد', 'success');
+                        await refreshConfigsList();
+                        
+                        // Select the new copied config
+                        document.getElementById('savedConfigs').value = saveResult.id;
+                        loadSelectedConfig();
+                    } else {
+                        throw new Error(saveResult.message || 'خطا در کپی پیکربندی');
+                    }
+                    
+                } else {
+                    throw new Error(result.message || 'خطا در بارگذاری پیکربندی');
+                }
+                
+            } catch (error) {
+                console.error('Error copying configuration:', error);
+                showToast('خطا در کپی پیکربندی: ' + error.message, 'error');
+            }
+        }
+        
+        function exportSelectedConfig() {
+            const select = document.getElementById('savedConfigs');
+            const selectedId = select.value;
+            
+            if (!selectedId) {
+                showToast('لطفاً پیکربندی را انتخاب کنید', 'warning');
+                return;
+            }
+            
+            fetch(`/api/selector-builder/configs/${selectedId}`, {
+                method: 'GET',
+                headers: {
+                    'Content-Type': 'application/json'
+                },
+                credentials: 'include'
+            })
+            .then(response => response.json())
+            .then(result => {
+                if (result.success) {
+                    const config = result.config;
+                    
+                    // Create export data
+                    const exportData = {
+                        name: config.name,
+                        description: config.description,
+                        url: config.url,
+                        selectors: config.selectors,
+                        exportDate: new Date().toISOString(),
+                        version: '1.0'
+                    };
+                    
+                    // Create and download file
+                    const dataStr = JSON.stringify(exportData, null, 2);
+                    const dataBlob = new Blob([dataStr], {type: 'application/json'});
+                    const url = URL.createObjectURL(dataBlob);
+                    
+                    const link = document.createElement('a');
+                    link.href = url;
+                    link.download = `${config.name.replace(/[^a-zA-Z0-9\u0600-\u06FF]/g, '_')}_config.json`;
+                    document.body.appendChild(link);
+                    link.click();
+                    document.body.removeChild(link);
+                    URL.revokeObjectURL(url);
+                    
+                    showToast('پیکربندی صادر شد', 'success');
+                } else {
+                    showToast('خطا در صادرات پیکربندی: ' + result.message, 'error');
+                }
+            })
+            .catch(error => {
+                console.error('Error exporting configuration:', error);
+                showToast('خطا در صادرات پیکربندی', 'error');
+            });
+        }
+        
+        async function deleteSelectedConfig() {
+            const select = document.getElementById('savedConfigs');
+            const selectedId = select.value;
+            
+            if (!selectedId) {
+                showToast('لطفاً پیکربندی را انتخاب کنید', 'warning');
+                return;
+            }
+            
+            const selectedOption = select.options[select.selectedIndex];
+            const configName = selectedOption.textContent;
+            
+            if (!confirm(`آیا مطمئن هستید که می‌خواهید پیکربندی "${configName}" را حذف کنید؟`)) {
+                return;
+            }
+            
+            try {
+                const response = await fetch(`/api/selector-builder/configs/${selectedId}`, {
+                    method: 'DELETE',
+                    headers: {
+                        'Content-Type': 'application/json'
+                    },
+                    credentials: 'include'
+                });
+                
+                const result = await response.json();
+                
+                if (result.success) {
+                    showToast('پیکربندی با موفقیت حذف شد', 'success');
+                    refreshConfigsList();
+                    clearConfiguration();
+                } else {
+                    showToast('خطا در حذف پیکربندی: ' + result.message, 'error');
+                }
+                
+            } catch (error) {
+                console.error('Error deleting configuration:', error);
+                showToast('خطا در حذف پیکربندی', 'error');
+            }
+        }
+        
+        function clearSelector(selectorKey) {
+            if (selectors[selectorKey]) {
+                selectors[selectorKey].selector = '';
+                const input = document.getElementById(selectorKey + 'Selector');
+                if (input) {
+                    input.value = '';
+                }
+            }
+        }
+        
+        function loadSiteInIframe(url) {
+            if (!url) {
+                showToast('آدرس صفحه نامعتبر است', 'warning');
+                return;
+            }
+            
+            const iframe = document.getElementById('previewFrame');
+            if (iframe) {
+                // Create a proxy URL to avoid CORS issues
+                const proxyUrl = `/api/selector-builder/proxy?url=${encodeURIComponent(url)}`;
+                iframe.src = proxyUrl;
+                
+                iframe.onload = () => {
+                    console.log('صفحه در iframe بارگذاری شد:', url);
+                };
+                
+                iframe.onerror = () => {
+                    showToast('خطا در بارگذاری صفحه', 'error');
+                };
+            }
+        }
+        
+        function clearConfiguration() {
+            // Clear form fields
+            document.getElementById('configName').value = '';
+            document.getElementById('configDescription').value = '';
+            document.getElementById('targetUrl').value = '';
+            document.getElementById('savedConfigs').value = '';
+            
+            // Disable management buttons
+            document.getElementById('deleteConfigBtn').disabled = true;
+            document.getElementById('copyConfigBtn').disabled = true;
+            document.getElementById('exportConfigBtn').disabled = true;
+            
+            // Clear selectors
+            Object.keys(selectors).forEach(key => {
+                clearSelector(key);
+            });
+            
+            // Clear iframe
+            document.getElementById('previewFrame').src = 'about:blank';
+            
+            // Reset config ID
+            configId = null;
+            
+            showToast('فرم پاک شد', 'info');
+        }
+        
+        async function loadExistingConfig(configId) {
+            try {
+                const response = await fetch(`/api/selector-builder/configs/${configId}`, {
+                    method: 'GET',
+                    headers: {
+                        'Content-Type': 'application/json'
+                    },
+                    credentials: 'include'
+                });
+                
+                const result = await response.json();
+                
+                if (result.success) {
+                    const config = result.config;
+                    
+                    // Load form data
+                    document.getElementById('configName').value = config.name || '';
+                    document.getElementById('configDescription').value = config.description || '';
+                    document.getElementById('targetUrl').value = config.url || '';
+                    
+                    // Clear existing selectors
+                    Object.keys(selectors).forEach(key => {
+                        clearSelector(key);
+                    });
+                    
+                    // Load selectors
+                    if (config.selectors) {
+                        Object.keys(config.selectors).forEach(key => {
+                            const selectorData = config.selectors[key];
+                            if (selectorData && selectorData.selector) {
+                                selectors[key] = {
+                                    label: selectorData.label || key,
+                                    selector: selectorData.selector
+                                };
+                                
+                                // Update UI
+                                const input = document.getElementById(key + 'Selector');
+                                if (input) {
+                                    input.value = selectorData.selector;
+                                }
+                            }
+                        });
+                    }
+                    
+                    // Set current config ID
+                    window.configId = config.id;
+                    
+                    // Load the URL in iframe if provided
+                    if (config.url) {
+                        loadSiteInIframe(config.url);
+                    }
+                    
+                    showToast(`پیکربندی "${config.name}" بارگذاری شد`, 'success');
+                    
+                } else {
+                    showToast('خطا در بارگذاری پیکربندی: ' + result.message, 'error');
+                }
+                
+            } catch (error) {
+                console.error('Error loading configuration:', error);
+                showToast('خطا در بارگذاری پیکربندی', 'error');
+            }
+        }
+        
+        // Enhanced save configuration with better error handling
+        async function saveConfigurationEnhanced() {
+            const name = document.getElementById('configName').value.trim();
+            const description = document.getElementById('configDescription').value.trim();
+            const url = document.getElementById('targetUrl').value.trim();
+            
+            // Validation
+            if (!name) {
+                showToast('نام پیکربندی الزامی است', 'warning');
+                document.getElementById('configName').focus();
+                return;
+            }
+            
+            if (!url) {
+                showToast('آدرس صفحه الزامی است', 'warning');
+                document.getElementById('targetUrl').focus();
+                return;
+            }
+            
+            // Validate URL format
+            try {
+                new URL(url);
+            } catch (error) {
+                showToast('آدرس صفحه نامعتبر است', 'warning');
+                document.getElementById('targetUrl').focus();
+                return;
+            }
+            
+            // Filter out empty selectors
+            const validSelectors = {};
+            let selectorCount = 0;
+            
+            Object.keys(selectors).forEach(key => {
+                if (selectors[key].selector && selectors[key].selector.trim()) {
+                    validSelectors[key] = {
+                        label: selectors[key].label,
+                        selector: selectors[key].selector.trim()
+                    };
+                    selectorCount++;
+                }
+            });
+            
+            if (selectorCount === 0) {
+                showToast('حداقل یک انتخابگر باید تعریف شود', 'warning');
+                return;
+            }
+            
+            const configData = {
+                name: name,
+                description: description,
+                url: url,
+                selectors: validSelectors
+            };
+            
+            try {
+                const method = configId ? 'PUT' : 'POST';
+                const endpoint = configId ? `/api/selector-builder/configs/${configId}` : '/api/selector-builder/configs';
+                
+                const response = await fetch(endpoint, {
+                    method: method,
+                    headers: {
+                        'Content-Type': 'application/json'
+                    },
+                    credentials: 'include',
+                    body: JSON.stringify(configData)
+                });
+                
+                const result = await response.json();
+                
+                if (result.success) {
+                    const message = configId ? 'پیکربندی به‌روزرسانی شد' : 'پیکربندی ذخیره شد';
+                    showToast(message, 'success');
+                    
+                    if (!configId) {
+                        configId = result.id;
+                    }
+                    
+                    // Refresh the configurations list
+                    await refreshConfigsList();
+                    
+                    // Select the current config in the dropdown
+                    if (configId) {
+                        document.getElementById('savedConfigs').value = configId;
+                    }
+                    
+                } else {
+                    throw new Error(result.message || 'خطا در ذخیره پیکربندی');
+                }
+                
+            } catch (error) {
+                console.error('Error saving configuration:', error);
+                showToast('خطا در ذخیره پیکربندی: ' + error.message, 'error');
+            }
         }
     </script>
 </body>

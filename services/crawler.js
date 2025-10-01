@@ -405,14 +405,16 @@ class UniversalCrawler {
 
       // Insert new article
       const result = await db.query(`
-        INSERT INTO articles (source_id, title, link, content, hash, depth)
-        VALUES ($1, $2, $3, $4, $5, $6)
+        INSERT INTO articles (source_id, title, link, content, lead, router, hash, depth)
+        VALUES ($1, $2, $3, $4, $5, $6, $7, $8)
         RETURNING id
       `, [
         sourceId, 
         article.title, 
         article.link, 
         article.content || '', 
+        article.lead || '',
+        article.router || '',
         hash, 
         article.depth || 0
       ]);
@@ -833,17 +835,134 @@ class UniversalCrawler {
         }, new URL(url).origin, selectors.link_selector) || [];
       }
       
+      // استخراج lead (خلاصه)
+      let lead = '';
+      const leadSelectors = selectors.lead_selectors && selectors.lead_selectors.length > 0 
+        ? selectors.lead_selectors 
+        : (selectors.lead_selector ? [selectors.lead_selector] : []);
+      
+      logger.info(`استفاده از ${leadSelectors.length} سلکتور lead برای ${url}`);
+      
+      if (leadSelectors.length > 0) {
+        if (this.webDriverManager.driverType === 'cheerio') {
+          for (const leadSelector of leadSelectors) {
+            if (!leadSelector) continue;
+            
+            const scriptStr = `
+              let lead = '';
+              const element = $("${leadSelector}").first();
+              if (element.length > 0) {
+                lead = element.text().trim();
+              }
+              return lead;
+            `;
+            
+            lead = await this.executeCheerioScript(page, scriptStr) || '';
+            
+            if (lead && lead.trim().length > 0) {
+              logger.info(`Lead با سلکتور ${leadSelector} یافت شد: ${lead.substring(0, 50)}...`);
+              break;
+            }
+          }
+        } else {
+          for (const leadSelector of leadSelectors) {
+            if (!leadSelector) continue;
+            
+            const isXPath = typeof leadSelector === 'string' && (leadSelector.trim().startsWith('/') || leadSelector.trim().startsWith('xpath='));
+            lead = await this.safeEvaluate(page, (selector, isXPathSel) => {
+              let nodes = [];
+              if (isXPathSel) {
+                const xp = selector.startsWith('xpath=') ? selector.slice(6) : selector;
+                const snap = document.evaluate(xp, document, null, XPathResult.ORDERED_NODE_SNAPSHOT_TYPE, null);
+                for (let i = 0; i < snap.snapshotLength; i++) nodes.push(snap.snapshotItem(i));
+              } else {
+                nodes = Array.from(document.querySelectorAll(selector));
+              }
+              return nodes.length > 0 ? nodes[0].textContent.trim() : '';
+            }, leadSelector, isXPath) || '';
+            
+            if (lead && lead.trim().length > 0) {
+              logger.info(`Lead با سلکتور ${leadSelector} یافت شد: ${lead.substring(0, 50)}...`);
+              break;
+            }
+          }
+        }
+      }
+      
+      // استخراج router (مسیر/دسته‌بندی)
+      let router = '';
+      const routerSelectors = selectors.router_selectors && selectors.router_selectors.length > 0 
+        ? selectors.router_selectors 
+        : (selectors.router_selector ? [selectors.router_selector] : []);
+      
+      logger.info(`استفاده از ${routerSelectors.length} سلکتور router برای ${url}`);
+      
+      if (routerSelectors.length > 0) {
+        if (this.webDriverManager.driverType === 'cheerio') {
+          for (const routerSelector of routerSelectors) {
+            if (!routerSelector) continue;
+            
+            const scriptStr = `
+              let router = '';
+              const element = $("${routerSelector}").first();
+              if (element.length > 0) {
+                router = element.text().trim();
+              }
+              return router;
+            `;
+            
+            router = await this.executeCheerioScript(page, scriptStr) || '';
+            
+            if (router && router.trim().length > 0) {
+              logger.info(`Router با سلکتور ${routerSelector} یافت شد: ${router.substring(0, 50)}...`);
+              break;
+            }
+          }
+        } else {
+          for (const routerSelector of routerSelectors) {
+            if (!routerSelector) continue;
+            
+            const isXPath = typeof routerSelector === 'string' && (routerSelector.trim().startsWith('/') || routerSelector.trim().startsWith('xpath='));
+            router = await this.safeEvaluate(page, (selector, isXPathSel) => {
+              let nodes = [];
+              if (isXPathSel) {
+                const xp = selector.startsWith('xpath=') ? selector.slice(6) : selector;
+                const snap = document.evaluate(xp, document, null, XPathResult.ORDERED_NODE_SNAPSHOT_TYPE, null);
+                for (let i = 0; i < snap.snapshotLength; i++) nodes.push(snap.snapshotItem(i));
+              } else {
+                nodes = Array.from(document.querySelectorAll(selector));
+              }
+              return nodes.length > 0 ? nodes[0].textContent.trim() : '';
+            }, routerSelector, isXPath) || '';
+            
+            if (router && router.trim().length > 0) {
+              logger.info(`Router با سلکتور ${routerSelector} یافت شد: ${router.substring(0, 50)}...`);
+              break;
+            }
+          }
+        }
+      }
+
       // Debug: لاگ کردن اطلاعات سلکتورها
       logger.info(`استخراج محتوا از ${url}:`, {
         titleSelector: selectors.title_selector,
         contentSelector: selectors.content_selector,
+        leadSelector: selectors.lead_selector || selectors.lead_selectors?.[0], // FIX: updated to use fallback logic
+        routerSelector: selectors.router_selector || selectors.router_selectors?.[0], // FIX: updated to use fallback logic
+        leadSelectors: selectors.lead_selectors,
+        routerSelectors: selectors.router_selectors,
         titleFound: title ? 'بله' : 'خیر',
-        contentLength: content ? content.length : 0
+        contentLength: content ? content.length : 0,
+        leadFound: lead ? 'بله' : 'خیر',
+        routerFound: router ? 'بله' : 'خیر'
       });
       
       const extractedData = {
         title: title || 'بدون عنوان',
         content,
+        lead: lead || '',
+        router: router || '',
+
         internalLinks
       };
       
@@ -888,7 +1007,9 @@ class UniversalCrawler {
         logger.info(`استفاده از سلکتورها برای لینک داخلی ${linkInfo.url}:`, {
           titleSelector: selectors.title_selector,
           contentSelector: selectors.content_selector,
-          linkSelector: selectors.link_selector
+          linkSelector: selectors.link_selector,
+          leadSelector: selectors.lead_selector || selectors.lead_selectors?.[0], // FIX: added fallback to array
+          routerSelector: selectors.router_selector || selectors.router_selectors?.[0], // FIX: added fallback to array
         });
         
         const articleData = await this.extractArticleContent(page, linkInfo.url, selectors, {
@@ -1179,7 +1300,9 @@ class UniversalCrawler {
               contentSelector: source.content_selector,
               linkSelector: source.link_selector,
               titleSelectors: source.title_selectors,
-              contentSelectors: source.content_selectors
+              contentSelectors: source.content_selectors,
+              leadSelectors: source.lead_selector || source.lead_selectors?.[0], // FIX: updated to use fallback logic
+              routerSelectors: source.router_selector || source.router_selectors?.[0] // FIX: updated to use fallback logic
             });
             
             // اطمینان از اینکه سلکتورها از دیتابیس استفاده می‌شوند
@@ -1187,8 +1310,12 @@ class UniversalCrawler {
               title_selector: source.title_selector,
               content_selector: source.content_selector,
               link_selector: source.link_selector,
+              lead_selector: source.lead_selector,
+              router_selector: source.router_selector,
               title_selectors: source.title_selectors,
-              content_selectors: source.content_selectors
+              content_selectors: source.content_selectors,
+              lead_selectors: source.lead_selectors,
+              router_selectors: source.router_selectors
             };
             
             articleData = await this.extractArticleContent(page, link, selectors, {
@@ -1201,6 +1328,8 @@ class UniversalCrawler {
           
           const article = {
             title: articleData.title,
+            lead: articleData.lead,
+            router: articleData.router,
             link: link,
             content: articleData.content,
             depth: 0
@@ -1222,7 +1351,9 @@ class UniversalCrawler {
               content_selector: source.content_selector,
               link_selector: source.link_selector,
               title_selectors: source.title_selectors,
-              content_selectors: source.content_selectors
+              content_selectors: source.content_selectors,
+              lead_selectors: source.lead_selectors,
+              router_selectors: source.router_selectors
             };
             
             logger.info(`شروع کرال عمیق با سلکتورها:`, {
@@ -1230,7 +1361,9 @@ class UniversalCrawler {
               contentSelector: selectors.content_selector,
               linkSelector: selectors.link_selector,
               titleSelectors: selectors.title_selectors,
-              contentSelectors: selectors.content_selectors
+              contentSelectors: selectors.content_selectors,
+              leadSelectors: selectors.lead_selector || selectors.lead_selectors?.[0], // FIX: updated to use fallback logic
+              routerSelectors: selectors.router_selector || selectors.router_selectors?.[0] // FIX: updated to use fallback logic
             });
             
             const deepArticles = await this.crawlInternalLinks(

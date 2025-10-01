@@ -4,6 +4,14 @@ let currentUser = null;
 let toastTimeout;
 let pageLoadingTimeout;
 
+// Utility functions
+function escapeHtml(text) {
+    if (!text) return '';
+    const div = document.createElement('div');
+    div.textContent = text;
+    return div.innerHTML;
+}
+
 // Loading functions
 function showLoading() {
     const loadingElement = document.getElementById('loading');
@@ -468,9 +476,12 @@ async function loadDashboard() {
         animateCounter('totalSources', 0, stats.totalSources || 0);
         animateCounter('recentCrawls', 0, stats.recentCrawls || 0);
         
-        // Load top sources
-        if (stats.topSources && stats.topSources.length > 0) {
-            const topSourcesHtml = stats.topSources.map((source, index) => 
+        // Load top sources (supports both array and pg result object)
+        const topSourcesArray = Array.isArray(stats.topSources)
+          ? stats.topSources
+          : (stats.topSources && Array.isArray(stats.topSources.rows) ? stats.topSources.rows : []);
+        if (topSourcesArray.length > 0) {
+            const topSourcesHtml = topSourcesArray.map((source, index) => 
                 `<div class="d-flex justify-content-between align-items-center mb-2" 
                       style="animation-delay: ${index * 100}ms; animation: fadeIn 0.5s ease forwards;">
                     <span>${source.name}</span>
@@ -482,14 +493,17 @@ async function loadDashboard() {
             document.getElementById('topSources').innerHTML = '<p class="text-muted">هنوز داده‌ای موجود نیست</p>';
         }
         
-        // Load recent activity - اگر عنصر موجود باشد
+        // Load recent activity - اگر عنصر موجود باشد (supports pg result object)
         const recentActivityElement = document.getElementById('recentActivity');
         if (recentActivityElement) {
-            if (stats.recentActivity && stats.recentActivity.length > 0) {
-                const activityHtml = stats.recentActivity.map((activity, index) => 
+            const activityArray = Array.isArray(stats.recentActivity)
+              ? stats.recentActivity
+              : (stats.recentActivity && Array.isArray(stats.recentActivity.rows) ? stats.recentActivity.rows : []);
+            if (activityArray.length > 0) {
+                const activityHtml = activityArray.map((activity, index) => 
                     `<div class="d-flex justify-content-between align-items-center mb-2"
                           style="animation-delay: ${index * 100}ms; animation: fadeIn 0.5s ease forwards;">
-                        <small>${activity.message}</small>
+                        <small>${activity.message || ''}</small>
                         <small class="text-muted">${formatDate(activity.timestamp)}</small>
                     </div>`
                 ).join('');
@@ -648,21 +662,45 @@ async function loadSources() {
 }
 
 async function addSource() {
+    console.log('🚀 شروع فرآیند افزودن منبع جدید');
+    
     const form = document.getElementById('addSourceForm');
     const formData = new FormData(form);
     
-    // جمع‌آوری سلکتورهای چندگانه
-    const titleSelectors = collectSelectors('title');
-    const contentSelectors = collectSelectors('content');
-    const leadSelectors = collectSelectors('lead');
-    const routerSelectors = collectSelectors('router');
+    console.log('📋 فرم پیدا شد:', form ? 'موجود' : 'یافت نشد');
     
-    const sourceData = {
+    // جمع‌آوری سلکتورهای چندگانه
+    console.log('🔍 شروع جمع‌آوری سلکتورهای چندگانه...');
+    
+    const titleSelectors = collectSelectors('title');
+    console.log('📝 سلکتورهای عنوان جمع‌آوری شده:', titleSelectors);
+    
+    const contentSelectors = collectSelectors('content');
+    console.log('📄 سلکتورهای محتوا جمع‌آوری شده:', contentSelectors);
+    
+    const leadSelectors = collectSelectors('lead');
+    console.log('📰 سلکتورهای لید جمع‌آوری شده:', leadSelectors);
+    
+    const routerSelectors = collectSelectors('router');
+    console.log('👤 سلکتورهای روتیتر جمع‌آوری شده:', routerSelectors);
+    
+    // بررسی مقادیر فیلدهای اصلی
+    const basicFields = {
         name: document.getElementById('sourceName').value,
         base_url: document.getElementById('sourceUrl').value,
         list_selector: document.getElementById('listSelector').value,
-        title_selector: titleSelectors.length > 0 ? titleSelectors[0] : '',
         link_selector: document.getElementById('linkSelector').value,
+        driver_type: document.getElementById('driverType').value
+    };
+    
+    console.log('🏷️ فیلدهای اصلی:', basicFields);
+    
+    const sourceData = {
+        name: basicFields.name,
+        base_url: basicFields.base_url,
+        list_selector: basicFields.list_selector,
+        title_selector: titleSelectors.length > 0 ? titleSelectors[0] : '',
+        link_selector: basicFields.link_selector,
         content_selector: contentSelectors.length > 0 ? contentSelectors[0] : '',
         lead_selector: leadSelectors.length > 0 ? leadSelectors[0] : '',
         router_selector: routerSelectors.length > 0 ? routerSelectors[0] : '',
@@ -670,22 +708,52 @@ async function addSource() {
         content_selectors: JSON.stringify(contentSelectors),
         lead_selectors: JSON.stringify(leadSelectors),
         router_selectors: JSON.stringify(routerSelectors),
-        driver_type: document.getElementById('driverType').value
+        driver_type: basicFields.driver_type
     };
     
+    console.log('📦 داده‌های نهایی برای ارسال:', sourceData);
+    console.log('🔢 تعداد سلکتورهای هر نوع:', {
+        title: titleSelectors.length,
+        content: contentSelectors.length,
+        lead: leadSelectors.length,
+        router: routerSelectors.length
+    });
+    
     try {
-        await apiCall('/api/sources', {
+        console.log('🌐 ارسال درخواست به سرور...');
+        console.log('📡 URL: /api/sources');
+        console.log('📤 Method: POST');
+        console.log('📋 Body:', JSON.stringify(sourceData, null, 2));
+        
+        const response = await apiCall('/api/sources', {
             method: 'POST',
             body: JSON.stringify(sourceData)
         });
         
+        console.log('✅ پاسخ موفق از سرور دریافت شد:', response);
+        console.log('💾 وضعیت ذخیره‌سازی: موفق');
+        
         showSuccess('منبع با موفقیت اضافه شد');
+        
+        console.log('🔄 بستن مودال و پاکسازی فرم...');
         bootstrap.Modal.getInstance(document.getElementById('addSourceModal')).hide();
         form.reset();
         clearAllSelectorFields();
+        
+        console.log('🔄 بارگذاری مجدد لیست منابع...');
         loadSources();
         
+        console.log('🎉 فرآیند افزودن منبع با موفقیت تکمیل شد');
+        
     } catch (error) {
+        console.error('❌ خطا در افزودن منبع:', error);
+        console.error('📋 جزئیات خطا:', {
+            message: error.message,
+            stack: error.stack,
+            name: error.name
+        });
+        console.error('📦 داده‌هایی که ارسال شده بود:', sourceData);
+        
         alert('خطا در افزودن منبع: ' + error.message);
     }
 }
@@ -716,6 +784,17 @@ async function editSource(sourceId) {
         document.getElementById('editSourceActive').checked = source.active;
         
         // پر کردن سلکتورهای چندگانه
+        console.log('🔍 داده‌های دریافت شده از سرور:', {
+            title_selectors: source.title_selectors,
+            title_selector: source.title_selector,
+            content_selectors: source.content_selectors,
+            content_selector: source.content_selector,
+            lead_selectors: source.lead_selectors,
+            lead_selector: source.lead_selector,
+            router_selectors: source.router_selectors,
+            router_selector: source.router_selector
+        });
+        
         populateEditSelectors('title', source.title_selectors || source.title_selector);
         populateEditSelectors('content', source.content_selectors || source.content_selector);
         populateEditSelectors('lead', source.lead_selectors || source.lead_selector);
@@ -731,16 +810,28 @@ async function editSource(sourceId) {
 }
 
 async function updateSource() {
+    console.log('🔄 [updateSource] شروع فرآیند به‌روزرسانی منبع');
+    
     const sourceId = document.getElementById('editSourceId').value;
+    console.log('🆔 [updateSource] ID منبع:', sourceId);
+    
     const modalElement = document.getElementById('editSourceModal');
     const modalInstance = bootstrap.Modal.getInstance(modalElement);
 
     // جمع‌آوری سلکتورهای چندگانه از فرم ویرایش
+    console.log('📋 [updateSource] شروع جمع‌آوری سلکتورهای چندگانه...');
     const titleSelectors = collectSelectors('title', true);
     const contentSelectors = collectSelectors('content', true);
     const leadSelectors = collectSelectors('lead', true);
     const routerSelectors = collectSelectors('router', true);
+    
+    console.log('📊 [updateSource] نتایج جمع‌آوری سلکتورها:');
+    console.log('  📝 titleSelectors:', titleSelectors);
+    console.log('  📄 contentSelectors:', contentSelectors);
+    console.log('  📰 leadSelectors:', leadSelectors);
+    console.log('  👤 routerSelectors:', routerSelectors);
 
+    console.log('🏗️ [updateSource] ساخت شیء sourceData...');
     const sourceData = {
         name: document.getElementById('editSourceName').value,
         base_url: document.getElementById('editSourceUrl').value,
@@ -748,8 +839,8 @@ async function updateSource() {
         title_selector: titleSelectors.length > 0 ? titleSelectors[0] : '',
         link_selector: document.getElementById('editLinkSelector').value,
         content_selector: contentSelectors.length > 0 ? contentSelectors[0] : '',
-        lead_selector: document.getElementById('editLeadSelector').value,
-        router_selector: document.getElementById('editRouterSelector').value,
+        lead_selector: leadSelectors.length > 0 ? leadSelectors[0] : '',
+        router_selector: routerSelectors.length > 0 ? routerSelectors[0] : '',
         title_selectors: JSON.stringify(titleSelectors),
         content_selectors: JSON.stringify(contentSelectors),
         lead_selectors: JSON.stringify(leadSelectors),
@@ -758,7 +849,23 @@ async function updateSource() {
         active: document.getElementById('editSourceActive').checked ? 1 : 0
     };
 
-    console.log('Updating source with data:', sourceData);
+    console.log('📦 [updateSource] داده‌های نهایی برای ارسال:');
+    console.log('  🏷️ name:', sourceData.name);
+    console.log('  🌐 base_url:', sourceData.base_url);
+    console.log('  📋 list_selector:', sourceData.list_selector);
+    console.log('  📝 title_selector:', sourceData.title_selector);
+    console.log('  🔗 link_selector:', sourceData.link_selector);
+    console.log('  📄 content_selector:', sourceData.content_selector);
+    console.log('  📰 lead_selector:', sourceData.lead_selector);
+    console.log('  👤 router_selector:', sourceData.router_selector);
+    console.log('  📝 title_selectors (JSON):', sourceData.title_selectors);
+    console.log('  📄 content_selectors (JSON):', sourceData.content_selectors);
+    console.log('  📰 lead_selectors (JSON):', sourceData.lead_selectors);
+    console.log('  👤 router_selectors (JSON):', sourceData.router_selectors);
+    console.log('  🚗 driver_type:', sourceData.driver_type);
+    console.log('  ✅ active:', sourceData.active);
+    
+    console.log('🚀 [updateSource] ارسال درخواست PUT به سرور...');
 
     try {
         await apiCall(`/api/sources/${sourceId}`, {
@@ -2642,9 +2749,17 @@ function addSelectorField(type) {
     const container = document.getElementById(`${type}SelectorsContainer`);
     const counter = ++selectorCounters[type];
     
+    console.log(`🔧 [addSelectorField] اضافه کردن فیلد سلکتور برای نوع: ${type}, شماره: ${counter}`);
+    console.log(`📦 [addSelectorField] ID کانتینر: ${type}SelectorsContainer`);
+    
+    if (!container) {
+        console.error(`❌ [addSelectorField] کانتینر با ID '${type}SelectorsContainer' پیدا نشد`);
+        return;
+    }
+    
     const fieldHtml = `
         <div class="input-group mt-2" id="${type}Selector${counter}">
-            <input type="text" class="form-control" placeholder="سلکتور ${type} ${counter}">
+            <input type="text" class="form-control" id="${type}SelectorInput${counter}" placeholder="سلکتور ${type} ${counter}" data-selector-type="${type}">
             <button type="button" class="btn btn-outline-danger" onclick="removeSelectorField('${type}', ${counter})">
                 <i class="fas fa-trash"></i>
             </button>
@@ -2652,6 +2767,7 @@ function addSelectorField(type) {
     `;
     
     container.insertAdjacentHTML('beforeend', fieldHtml);
+    console.log(`✅ [addSelectorField] فیلد جدید با موفقیت اضافه شد`);
 }
 
 // حذف فیلد سلکتور در فرم اضافه کردن
@@ -2664,12 +2780,22 @@ function removeSelectorField(type, counter) {
 
 // اضافه کردن فیلد سلکتور جدید در فرم ویرایش
 function addEditSelectorField(type) {
-    const container = document.getElementById(`edit${type.charAt(0).toUpperCase() + type.slice(1)}SelectorsContainer`);
+    const capitalizedType = type.charAt(0).toUpperCase() + type.slice(1);
+    const containerId = `edit${capitalizedType}SelectorsContainer`;
+    const container = document.getElementById(containerId);
     const counter = ++editSelectorCounters[type];
     
+    console.log(`🔧 [addEditSelectorField] اضافه کردن فیلد سلکتور برای نوع: ${type}, شماره: ${counter}`);
+    console.log(`📦 [addEditSelectorField] ID کانتینر: ${containerId}`);
+    
+    if (!container) {
+        console.error(`❌ [addEditSelectorField] کانتینر با ID '${containerId}' پیدا نشد`);
+        return;
+    }
+    
     const fieldHtml = `
-        <div class="input-group mt-2" id="edit${type.charAt(0).toUpperCase() + type.slice(1)}Selector${counter}">
-            <input type="text" class="form-control" placeholder="سلکتور ${type} ${counter}">
+        <div class="input-group mt-2" id="edit${capitalizedType}Selector${counter}">
+            <input type="text" class="form-control" id="edit${capitalizedType}SelectorInput${counter}" placeholder="سلکتور ${type} ${counter}" data-selector-type="${type}">
             <button type="button" class="btn btn-outline-danger" onclick="removeEditSelectorField('${type}', ${counter})">
                 <i class="fas fa-trash"></i>
             </button>
@@ -2677,6 +2803,7 @@ function addEditSelectorField(type) {
     `;
     
     container.insertAdjacentHTML('beforeend', fieldHtml);
+    console.log(`✅ [addEditSelectorField] فیلد جدید با موفقیت اضافه شد`);
 }
 
 // حذف فیلد سلکتور در فرم ویرایش
@@ -2689,40 +2816,91 @@ function removeEditSelectorField(type, counter) {
 
 // جمع‌آوری تمام سلکتورها از فرم
 function collectSelectors(type, isEdit = false) {
+    console.log(`🔍 [collectSelectors] شروع جمع‌آوری سلکتورها برای نوع: ${type}, حالت ویرایش: ${isEdit}`);
+    
     const prefix = isEdit ? 'edit' : '';
-    const capitalizedType = type.charAt(0).toUpperCase() + type.slice(1);
+    const capitalizedType = isEdit ? type.charAt(0).toUpperCase() + type.slice(1) : type;
     const selectorId = `${prefix}${capitalizedType}Selector`;
     const containerId = `${prefix}${capitalizedType}SelectorsContainer`;
     
+    console.log(`🎯 [collectSelectors] جستجو برای المنت با ID: ${selectorId}`);
+    console.log(`📦 [collectSelectors] جستجو برای کانتینر با ID: ${containerId}`);
+    
     const mainElement = document.getElementById(selectorId);
     if (!mainElement) {
-        console.warn(`Element with ID '${selectorId}' not found`);
+        console.warn(`❌ [collectSelectors] المنت با ID '${selectorId}' پیدا نشد`);
         return [];
     }
     
     const mainSelector = mainElement.value.trim();
+    console.log(`📝 [collectSelectors] مقدار سلکتور اصلی: '${mainSelector}'`);
     const selectors = [];
     
-    // همیشه مقدار اصلی را اضافه کن، حتی اگر خالی باشد
-    selectors.push(mainSelector);
-    
-    const container = document.getElementById(containerId);
-    if (container) {
-        const additionalInputs = container.querySelectorAll('input');
-        
-        additionalInputs.forEach(input => {
-            if (input.value.trim()) {
-                selectors.push(input.value.trim());
-            }
-        });
+    // فقط سلکتورهای غیر خالی را اضافه کن
+    if (mainSelector) {
+        selectors.push(mainSelector);
+        console.log(`✅ [collectSelectors] سلکتور اصلی اضافه شد: '${mainSelector}'`);
+    } else {
+        console.log(`⚠️ [collectSelectors] سلکتور اصلی خالی است`);
     }
     
+    const container = document.getElementById(containerId);
+    
+    if (container) {
+        console.log(`✅ [collectSelectors] کانتینر پیدا شد، جستجو برای inputهای اضافی...`);
+        const additionalInputs = container.querySelectorAll('input');
+        console.log(`📊 [collectSelectors] ${additionalInputs.length} input اضافی پیدا شد`);
+        
+        additionalInputs.forEach((input, index) => {
+            const inputValue = input.value.trim();
+            const inputId = input.id || 'بدون ID';
+            const selectorType = input.getAttribute('data-selector-type') || 'نامشخص';
+            console.log(`🔸 [collectSelectors] Input ${index + 1} - مقدار: '${inputValue}', ID: '${inputId}', نوع: '${selectorType}'`);
+            if (inputValue) {
+                selectors.push(inputValue);
+                console.log(`✅ [collectSelectors] Input ${index + 1} اضافه شد به لیست`);
+            } else {
+                console.log(`⚠️ [collectSelectors] Input ${index + 1} خالی است، نادیده گرفته شد`);
+            }
+        });
+    } else {
+        console.warn(`❌ [collectSelectors] کانتینر با ID '${containerId}' پیدا نشد`);
+    }
+    
+    // جستجوی اضافی برای فیلدهای داینامیک با ID های منحصر به فرد
+    console.log(`🔍 [collectSelectors] جستجوی اضافی برای فیلدهای داینامیک...`);
+    const dynamicInputs = document.querySelectorAll(`input[data-selector-type="${type}"]`);
+    console.log(`🎯 [collectSelectors] ${dynamicInputs.length} فیلد داینامیک پیدا شد`);
+    
+    dynamicInputs.forEach((input, index) => {
+        const inputValue = input.value.trim();
+        const inputId = input.id || 'بدون ID';
+        console.log(`🔹 [collectSelectors] فیلد داینامیک ${index + 1} - مقدار: '${inputValue}', ID: '${inputId}'`);
+        
+        // اطمینان از عدم تکرار
+        if (inputValue && !selectors.includes(inputValue)) {
+            selectors.push(inputValue);
+            console.log(`✅ [collectSelectors] فیلد داینامیک ${index + 1} اضافه شد`);
+        } else if (inputValue && selectors.includes(inputValue)) {
+            console.log(`⚠️ [collectSelectors] فیلد داینامیک ${index + 1} تکراری است`);
+        } else {
+            console.log(`⚠️ [collectSelectors] فیلد داینامیک ${index + 1} خالی است`);
+        }
+    });
+    
+    console.log(`🎉 [collectSelectors] نتیجه نهایی برای ${type}:`, selectors);
+    console.log(`📈 [collectSelectors] تعداد کل سلکتورها: ${selectors.length}`);
     return selectors;
 }
 
 // پر کردن فیلدهای سلکتور در فرم ویرایش
 function populateEditSelectors(type, selectors) {
-    if (!selectors) return;
+    console.log(`🔍 populateEditSelectors شروع شد برای ${type}:`, selectors);
+    
+    if (!selectors) {
+        console.log(`⚠️ هیچ سلکتوری برای ${type} یافت نشد`);
+        return;
+    }
     
     let selectorArray;
     
@@ -2731,36 +2909,51 @@ function populateEditSelectors(type, selectors) {
         try {
             // اگر JSON است
             selectorArray = JSON.parse(selectors);
+            console.log(`📋 JSON پارس شد برای ${type}:`, selectorArray);
         } catch (e) {
             // اگر رشته ساده است
             selectorArray = selectors.trim() ? [selectors] : [];
+            console.log(`📝 رشته ساده تبدیل شد برای ${type}:`, selectorArray);
         }
     } else if (Array.isArray(selectors)) {
         selectorArray = selectors;
+        console.log(`📊 آرایه دریافت شد برای ${type}:`, selectorArray);
     } else {
+        console.warn(`❌ نوع نامعتبر برای ${type}:`, typeof selectors);
         return;
     }
     
     const mainInput = document.getElementById(`edit${type.charAt(0).toUpperCase() + type.slice(1)}Selector`);
     const container = document.getElementById(`edit${type.charAt(0).toUpperCase() + type.slice(1)}SelectorsContainer`);
     
-    if (!mainInput || !container) return;
+    console.log(`🎯 المنت‌های یافت شده - mainInput:`, !!mainInput, `container:`, !!container);
+    
+    if (!mainInput || !container) {
+        console.error(`❌ المنت‌های مورد نیاز یافت نشدند برای ${type}`);
+        return;
+    }
     
     // پاک کردن فیلدهای قبلی
     container.innerHTML = '';
-    editSelectorCounters[type] = 0;
+    // شمارنده را صفر نمی‌کنیم چون قبلاً در clearAllEditSelectorFields صفر شده
+    console.log(`🧹 فیلدهای قبلی پاک شدند، شمارنده فعلی: ${editSelectorCounters[type]}`);
     
     // پر کردن فیلد اصلی
     if (selectorArray.length > 0) {
         mainInput.value = selectorArray[0];
+        console.log(`✅ فیلد اصلی ${type} پر شد:`, selectorArray[0]);
     }
     
     // اضافه کردن فیلدهای اضافی
     for (let i = 1; i < selectorArray.length; i++) {
         addEditSelectorField(type);
-        const newInput = container.querySelector('input:last-child');
+        // پیدا کردن آخرین input با ID منحصر به فرد
+        const newInput = container.querySelector(`input[id="edit${type.charAt(0).toUpperCase() + type.slice(1)}SelectorInput${editSelectorCounters[type]}"]`);
         if (newInput) {
             newInput.value = selectorArray[i];
+            console.log(`🔄 فیلد داینامیک ${type} شماره ${i} بارگذاری شد:`, selectorArray[i]);
+        } else {
+            console.warn(`⚠️ نتوانست فیلد داینامیک ${type} شماره ${i} را پیدا کند`);
         }
     }
 }
@@ -2821,7 +3014,7 @@ function startSelectorBuilder() {
     
     // باز کردن selector builder با URL مشخص شده
     const selectorBuilderUrl = `/admin/selector-builder.html?url=${encodeURIComponent(url)}`;
-    window.open(selectorBuilderUrl, '_blank');
+    window.location.href = selectorBuilderUrl;
 }
 
 // بارگذاری پیکربندی‌های ذخیره شده

@@ -611,28 +611,53 @@ app.post('/api/articles/mark-read', async (req, res) => {
 app.get('/api/stats', async (req, res) => {
   try {
     const queries = {
-      totalArticles: 'SELECT COUNT(*) as count FROM articles',
-      newArticles: 'SELECT COUNT(*) as count FROM articles WHERE is_new = true',
-      recentCrawls: 'SELECT * FROM crawl_history ORDER BY crawl_date DESC LIMIT 10'
+      totalArticles: "SELECT COUNT(*)::int as count FROM articles",
+      // Treat 'new' as unread in our schema
+      newArticles: "SELECT COUNT(*)::int as count FROM articles WHERE is_read = false",
+      // Count recent crawls in last 24 hours
+      recentCrawls: "SELECT COUNT(*)::int as count FROM crawl_history WHERE created_at >= NOW() - INTERVAL '24 hours'",
+      // Top sources by article count
+      topSources: `
+        SELECT ns.id, ns.name, COUNT(a.id)::int AS article_count
+        FROM news_sources ns
+        LEFT JOIN articles a ON a.source_id = ns.id
+        GROUP BY ns.id, ns.name
+        ORDER BY article_count DESC
+        LIMIT 5
+      `,
+      // Recent activity messages from crawl_logs
+      recentActivity: `
+        SELECT message, created_at as timestamp
+        FROM crawl_logs
+        ORDER BY id DESC
+        LIMIT 10
+      `
     };
-    
+
     const results = {};
-    
+
     // Execute queries in parallel
-    const [totalArticlesResult, newArticlesResult, recentCrawlsResult] = await Promise.all([
+    const [
+      totalArticlesResult,
+      newArticlesResult,
+      recentCrawlsCountResult,
+      topSourcesResult,
+      recentActivityResult,
+    ] = await Promise.all([
       db.query(queries.totalArticles),
       db.query(queries.newArticles),
-      db.query(queries.recentCrawls)
+      db.query(queries.recentCrawls),
+      db.query(queries.topSources),
+      db.query(queries.recentActivity),
     ]);
-    
+
     results.totalArticles = parseInt(totalArticlesResult.rows?.[0]?.count || 0);
     results.newArticles = parseInt(newArticlesResult.rows?.[0]?.count || 0);
-    results.recentCrawls = recentCrawlsResult;
-    
-    res.json({
-      success: true,
-      stats: results
-    });
+    results.recentCrawls = parseInt(recentCrawlsCountResult.rows?.[0]?.count || 0);
+    results.topSources = topSourcesResult.rows || [];
+    results.recentActivity = recentActivityResult.rows || [];
+
+    res.json({ success: true, stats: results });
   } catch (error) {
     res.status(500).json({ error: error.message });
   }
@@ -818,3 +843,4 @@ app.listen(PORT, async () => {
   // شروع زمانبندی‌های پاک‌سازی
   await cleanup.startAllJobs();
 });
+

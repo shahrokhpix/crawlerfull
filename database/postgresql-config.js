@@ -5,7 +5,7 @@ const pool = new Pool({
   user: 'crawler_user',
   host: 'localhost',
   database: 'farsnews_crawler_spider_db',
-  password: 'farsnews123',
+  password: '8bmh8y19zNJahAv5Aa4B',
   port: 5432,
   max: 20, // Maximum number of clients in the pool
   idleTimeoutMillis: 30000,

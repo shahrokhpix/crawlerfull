@@ -67,7 +67,7 @@ create_database() {
     print_status "ایجاد دیتابیس PostgreSQL..."
     
     # Create user if not exists
-    psql -h localhost -U postgres -c "CREATE USER crawler_user WITH PASSWORD 'farsnews123';" 2>/dev/null || true
+    psql -h localhost -U postgres -c "CREATE USER crawler_user WITH PASSWORD '8bmh8y19zNJahAv5Aa4B';" 2>/dev/null || true
     
     # Create database
     psql -h localhost -U postgres -c "CREATE DATABASE farsnews_crawler_spider_db OWNER crawler_user;" 2>/dev/null || true

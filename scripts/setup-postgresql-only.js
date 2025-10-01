@@ -11,7 +11,7 @@ class PostgreSQLOnlySetup {
       user: process.env.DB_USER || 'crawler_user',
       host: process.env.DB_HOST || 'localhost',
       database: process.env.DB_NAME || 'farsnews_crawler_spider_db',
-      password: process.env.DB_PASSWORD || 'farsnews123',
+      password: process.env.DB_PASSWORD || '8bmh8y19zNJahAv5Aa4B',
       port: process.env.DB_PORT || 5432,
     };
     
@@ -112,6 +112,8 @@ class PostgreSQLOnlySetup {
         title TEXT NOT NULL,
         link TEXT NOT NULL UNIQUE,
         content TEXT,
+        lead TEXT,
+        router TEXT,
         hash TEXT UNIQUE,
         depth INTEGER DEFAULT 0,
         is_read BOOLEAN DEFAULT FALSE,
@@ -476,4 +478,4 @@ if (require.main === module) {
   main();
 }
 
-module.exports = PostgreSQLOnlySetup; 
+module.exports = PostgreSQLOnlySetup;

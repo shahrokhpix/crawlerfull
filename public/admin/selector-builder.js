@@ -32,15 +32,12 @@ class VisualSelectorBuilder {
     
     connectWebSocket() {
         try {
-            this.websocket = new WebSocket('ws://localhost:3005');
+            this.websocket = new WebSocket('ws://localhost:3006');
             
             this.websocket.onopen = () => {
                 console.log('WebSocket connected');
-                // Connection status element may not exist in this HTML version
                 const statusEl = document.getElementById('connection-status');
-                if (statusEl) {
-                    statusEl.innerHTML = '🟢 متصل';
-                }
+                if (statusEl) statusEl.innerHTML = '🟢 متصل';
             };
             
             this.websocket.onmessage = (event) => {
@@ -50,18 +47,21 @@ class VisualSelectorBuilder {
             
             this.websocket.onclose = () => {
                 console.log('WebSocket disconnected');
-                document.getElementById('connection-status').innerHTML = '🔴 قطع';
+                const statusEl = document.getElementById('connection-status');
+                if (statusEl) statusEl.innerHTML = '🔴 قطع';
                 // Try to reconnect after 3 seconds
                 setTimeout(() => this.connectWebSocket(), 3000);
             };
             
             this.websocket.onerror = (error) => {
                 console.error('WebSocket error:', error);
-                document.getElementById('connection-status').innerHTML = '🟡 خطا';
+                const statusEl = document.getElementById('connection-status');
+                if (statusEl) statusEl.innerHTML = '🟡 خطا';
             };
         } catch (error) {
             console.error('Failed to connect WebSocket:', error);
-            document.getElementById('connection-status').innerHTML = '🔴 قطع';
+            const statusEl = document.getElementById('connection-status');
+            if (statusEl) statusEl.innerHTML = '🔴 قطع';
         }
     }
     
